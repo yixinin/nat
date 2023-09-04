@@ -15,6 +15,7 @@ var (
 	client bool
 	port   int
 	tcp    bool
+	dns    bool
 )
 
 func main() {
@@ -23,6 +24,7 @@ func main() {
 	flag.BoolVar(&client, "c", false, "http client")
 	flag.IntVar(&port, "p", 8888, "local addr")
 	flag.BoolVar(&tcp, "tcp", false, "listen tcp")
+	flag.BoolVar(&dns, "dns", false, "listen dns")
 	flag.Parse()
 
 	logrus.SetLevel(logrus.DebugLevel)
@@ -37,6 +39,11 @@ func main() {
 		err := http.NewTcpServer().Run(ctx)
 		if err != nil {
 			logrus.Errorf("run tcp error:%v", err)
+		}
+	case dns:
+		err := NewDdns().Run(ctx)
+		if err != nil {
+			logrus.Errorf("run ddns error:%v", err)
 		}
 	case stun:
 		s, err := NewStun(localAddr)

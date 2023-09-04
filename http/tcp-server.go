@@ -2,6 +2,9 @@ package http
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quic-go/quic-go"
@@ -32,5 +35,41 @@ func (s *TcpServer) Run(ctx context.Context) error {
 		QuicConfig: quicConf,
 	}
 
+	go func() {
+		if err := s.Sync(ctx); err != nil {
+			logrus.Errorf("run sync error:%v", err)
+		}
+	}()
 	return server.ListenAndServeTLS("quic.crt", "quic.key")
+}
+
+func (s *TcpServer) Sync(ctx context.Context) error {
+	var sync = func() {
+		resp, err := http.Get("http://6.ipw.cn")
+		if err != nil {
+			logrus.Errorf("get self ipv6 error:%v", err)
+			return
+		}
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			logrus.Errorf("get self ipv6 error:%v", err)
+			return
+		}
+		_, err = http.Get("http://114.115.218.1:8080/dns?name=opi&addr=" + string(data))
+		if err != nil {
+			logrus.Errorf("post self ipv6 error:%v", err)
+			return
+		}
+	}
+	sync()
+	tk := time.NewTicker(time.Minute)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-tk.C:
+			sync()
+		}
+	}
 }
