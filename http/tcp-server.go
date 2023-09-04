@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -56,7 +57,11 @@ func (s *TcpServer) Sync(ctx context.Context) error {
 			logrus.Errorf("get self ipv6 error:%v", err)
 			return
 		}
-		_, err = http.Get("http://114.115.218.1:8080/dns?name=opi&addr=" + string(data))
+		vals := url.Values{
+			"name": []string{"opi"},
+			"addr": []string{string(data)},
+		}
+		_, err = http.Get("http://114.115.218.1:8080/dns?" + vals.Encode())
 		if err != nil {
 			logrus.Errorf("post self ipv6 error:%v", err)
 			return
