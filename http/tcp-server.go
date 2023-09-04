@@ -61,7 +61,9 @@ func (s *TcpServer) Sync(ctx context.Context) error {
 			"name": []string{"opi"},
 			"addr": []string{string(data)},
 		}
-		_, err = http.Get("http://114.115.218.1:8080/dns?" + vals.Encode())
+		var s = "http://114.115.218.1:8080/dns?" + vals.Encode()
+		logrus.Debug(s)
+		_, err = http.Get(s)
 		if err != nil {
 			logrus.Errorf("post self ipv6 error:%v", err)
 			return
