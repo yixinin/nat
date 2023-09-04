@@ -2,143 +2,71 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"net"
-	"strconv"
-	"time"
+	"nat/http"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
-	Type string
-	lp   int
+	stun   bool
+	server bool
+	client bool
+	port   int
+	tcp    bool
 )
 
 func main() {
-	flag.StringVar(&Type, "t", "", "run type")
-	flag.IntVar(&lp, "p", 8888, "local addr")
+	flag.BoolVar(&stun, "t", false, "stun server")
+	flag.BoolVar(&server, "s", false, "http server")
+	flag.BoolVar(&client, "c", false, "http client")
+	flag.IntVar(&port, "p", 8888, "local addr")
+	flag.BoolVar(&tcp, "tcp", false, "listen tcp")
 	flag.Parse()
 
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{})
+
+	var stunAddr = "114.115.218.1:8888"
+	var localAddr = fmt.Sprintf(":%d", port)
 	var ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
-	switch Type {
-	case "stun":
-		err := stun(ctx)
-		fmt.Println(err)
-	case "client":
-		err := client(ctx)
-		fmt.Println(err)
-	}
-}
-
-func client(ctx context.Context) error {
-	laddr := &net.UDPAddr{
-		Port: lp,
-	}
-
-	conn, err := net.ListenUDP("udp", laddr)
-	if err != nil {
-		return err
-	}
-	raddr := &net.UDPAddr{
-		Port: 8888,
-		IP:   net.IPv4(114, 115, 218, 1),
-	}
-	n, err := conn.WriteToUDP([]byte(strconv.Itoa(lp)), raddr)
-	fmt.Println("send to stun", raddr, n, err)
-	go func(raddr *net.UDPAddr) {
-		tk := time.NewTicker(time.Second)
-		for range tk.C {
-			n, err := conn.WriteToUDP([]byte("::"), raddr)
-			fmt.Println("send to stun", raddr, n, err)
-		}
-	}(raddr)
-
-	var buf = make([]byte, 512)
-	for {
-		n, raddr, err = conn.ReadFromUDP(buf)
+	switch {
+	case tcp:
+		err := http.NewTcpServer().Run(ctx)
 		if err != nil {
-			return err
+			logrus.Errorf("run tcp error:%v", err)
 		}
-		fmt.Println("client recv", raddr, string(buf[:n]))
-		switch n {
-		case 2:
-		case 0:
-		default:
-			switch buf[0] {
-			case '{':
-				raddr = new(net.UDPAddr)
-				err = json.Unmarshal(buf[:n], raddr)
-				if err != nil {
-					return err
-				}
-				fmt.Println("try to connect", raddr)
-				go func(raddr *net.UDPAddr) {
-					tk := time.NewTicker(time.Second)
-					for range tk.C {
-						n, err = conn.WriteToUDP([]byte("hello server, I'm client from stun"), raddr)
-						fmt.Println("send to server", raddr, n, err)
-					}
-				}(raddr)
-			default:
-			}
+	case stun:
+		s, err := NewStun(localAddr)
+		if err != nil {
+			logrus.Errorf("new stun error:%v", err)
+			return
 		}
-	}
-}
-
-func stun(ctx context.Context) error {
-	laddr := &net.UDPAddr{
-		Port: 8888,
-	}
-	conn, err := net.ListenUDP("udp4", laddr)
-	if err != nil {
-		return err
-	}
-	var m = map[string]*net.UDPAddr{}
-	for {
-		var buf = make([]byte, 512)
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			n, raddr, err := conn.ReadFromUDP(buf)
-			if err != nil {
-				return err
-			}
-			fmt.Println("recv", string(buf[:n]), "from", raddr)
-
-			switch s := string(buf[:n]); s {
-			case "::":
-				_, err = conn.WriteTo(buf[:n], raddr)
-				if err != nil {
-					return err
-				}
-			default:
-				if len(m) == 1 {
-					for _, addr := range m {
-						data, err := json.Marshal(raddr)
-						if err != nil {
-							return err
-						}
-						_, err = conn.WriteTo(data, addr)
-						if err != nil {
-							return err
-						}
-
-						data, err = json.Marshal(addr)
-						if err != nil {
-							return err
-						}
-						_, err = conn.WriteTo(data, raddr)
-						if err != nil {
-							return err
-						}
-					}
-				}
-				m[string(buf[:n])] = raddr
-
-			}
+		err = s.Run(ctx)
+		if err != nil {
+			logrus.Errorf("run stun error:%v", err)
+		}
+	case client:
+		c, err := NewClient(TypeClient, localAddr, stunAddr)
+		if err != nil {
+			logrus.Errorf("new client.client error:%v", err)
+			return
+		}
+		err = c.Run(ctx)
+		if err != nil {
+			logrus.Errorf("run client.client error:%v", err)
+		}
+	case server:
+		c, err := NewClient(TypeServer, localAddr, stunAddr)
+		if err != nil {
+			logrus.Errorf("new client.server error:%v", err)
+			return
+		}
+		err = c.Run(ctx)
+		if err != nil {
+			logrus.Errorf("run client.server error:%v", err)
 		}
 	}
 }
