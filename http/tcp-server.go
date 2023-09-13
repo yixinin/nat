@@ -32,13 +32,22 @@ func (s *TcpServer) Run(ctx context.Context) error {
 
 	server := http3.Server{
 		Handler:    e,
-		Addr:       ":8080",
+		Addr:       ":8081",
 		QuicConfig: quicConf,
 	}
 
 	go func() {
 		if err := s.Sync(ctx); err != nil {
 			logrus.Errorf("run sync error:%v", err)
+		}
+	}()
+	go func() {
+		s := http.Server{
+			Addr:    ":8082",
+			Handler: e,
+		}
+		if err := s.ListenAndServe(); err != nil {
+			logrus.Errorf("serve tcp error:%v", err)
 		}
 	}()
 	return server.ListenAndServeTLS("quic.crt", "quic.key")
