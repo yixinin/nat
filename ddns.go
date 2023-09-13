@@ -28,9 +28,10 @@ func (d *Ddns) Run(ctx context.Context) error {
 		d.dns[name] = addr
 		c.String(200, "OK")
 	})
-	d.Lock()
-	defer d.Unlock()
+
 	e.GET("/dnss", func(c *gin.Context) {
+		d.Lock()
+		defer d.Unlock()
 		c.JSON(200, d.dns)
 	})
 	return e.Run(":8080")
