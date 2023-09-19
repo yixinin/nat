@@ -2,6 +2,8 @@ package tunnel
 
 import (
 	"context"
+	"errors"
+	"io"
 	"nat/message"
 	"nat/stderr"
 	"net"
@@ -56,6 +58,9 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		var buf = make([]byte, message.BufferSize)
 		for {
 			n, err := conn.Read(buf)
+			if errors.Is(err, io.EOF) {
+				continue
+			}
 			if err != nil {
 				errCh <- err
 				return

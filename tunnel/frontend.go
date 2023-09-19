@@ -2,6 +2,8 @@ package tunnel
 
 import (
 	"context"
+	"errors"
+	"io"
 	"nat/message"
 	"nat/stderr"
 	"net"
@@ -155,6 +157,12 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case err := <-errCh:
+			if errors.Is(err, io.EOF) {
+				logrus.WithContext(ctx).Debug("disconnected wait next session")
+				return nil
+			}
+			return stderr.Wrap(err)
 		case <-tk.C:
 			msg := message.HeartbeatMessage{}
 			data, _ := message.Marshal(msg)
@@ -185,8 +193,6 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 				return stderr.Wrap(err)
 			}
 			logrus.WithContext(ctx).Debugf("send %d local data", n)
-		case err := <-errCh:
-			return stderr.Wrap(err)
 		}
 	}
 }
