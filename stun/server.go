@@ -60,7 +60,7 @@ func (s *Server) Run(ctx context.Context) error {
 			}
 			close(dataCh)
 		}()
-		var buf = make([]byte, 1024)
+		var buf = make([]byte, message.BufferSize)
 		for {
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
 				"laddr": s.localAddr,

@@ -64,7 +64,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			}
 			close(dataCh)
 		}()
-		var buf = make([]byte, 1024)
+		var buf = make([]byte, message.BufferSize)
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {

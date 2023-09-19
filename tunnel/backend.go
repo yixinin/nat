@@ -53,7 +53,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			}
 			close(lpc)
 		}()
-		var buf = make([]byte, 1024)
+		var buf = make([]byte, message.BufferSize)
 		for {
 			n, err := conn.Read(buf)
 			if err != nil {
@@ -73,7 +73,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			}
 			close(rpc)
 		}()
-		var buf = make([]byte, 1024)
+		var buf = make([]byte, message.BufferSize)
 		for {
 			n, raddr, err := t.proxy.ReadFromUDP(buf)
 			if err != nil {
@@ -120,15 +120,17 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 				logrus.Debug("local lpc chan closed!")
 				return nil
 			}
-			msg := message.NewPacketMessage(data)
-			data, _ = message.Marshal(msg)
-			n, err := t.proxy.WriteToUDP(data, t.raddr)
-			if err != nil {
-				return stderr.Wrap(err)
+			msgs := message.NewPacketMessage(data)
+			for _, msg := range msgs {
+				data, _ = message.Marshal(msg)
+				n, err := t.proxy.WriteToUDP(data, t.raddr)
+				if err != nil {
+					return stderr.Wrap(err)
+				}
+				logrus.WithContext(ctx).WithFields(logrus.Fields{
+					"raddr": t.raddr.String(),
+				}).Debugf("send %d data", n)
 			}
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
-				"raddr": t.raddr.String(),
-			}).Debugf("send %d data", n)
 		case data, ok := <-rpc:
 			if !ok {
 				logrus.Debug("local rpc chan closed!")

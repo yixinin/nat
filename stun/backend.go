@@ -85,7 +85,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			}
 			close(dataCh)
 		}()
-		var buf = make([]byte, 1024)
+		var buf = make([]byte, message.BufferSize)
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {

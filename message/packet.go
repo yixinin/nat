@@ -1,11 +1,25 @@
 package message
 
+const BufferSize = 1400
+const PacketSize = BufferSize - 1
+
 type PacketMessage struct {
 	Data []byte `json:"data"`
 }
 
-func NewPacketMessage(data []byte) PacketMessage {
-	return PacketMessage{Data: data}
+func NewPacketMessage(data []byte) []PacketMessage {
+	if len(data) <= PacketSize {
+		return []PacketMessage{{Data: data}}
+	}
+	ps := make([]PacketMessage, 0, len(data)/PacketSize+1)
+	for i := 0; i < len(data); i += PacketSize {
+		var end = i + PacketSize
+		if end > len(data) {
+			end = len(data)
+		}
+		ps = append(ps, PacketMessage{Data: data[i:end]})
+	}
+	return ps
 }
 
 func (m *PacketMessage) SetHeader(data []byte) (int, error) {
