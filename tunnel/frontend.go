@@ -80,7 +80,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			}
 			go func() {
 				if err := t.handle(ctx, sessid.Add(1), conn); err != nil {
-					logrus.WithContext(ctx).Errorf("handle proxy error:%v", err)
+					logrus.WithContext(ctx).WithField("id", sessid.Load()).Errorf("handle proxy error:%v", err)
 				}
 			}()
 		}
@@ -99,6 +99,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 
 	lpc := make(chan []byte, 1)
 	defer close(lpc)
+	defer conn.Close()
 
 	go func() {
 		defer func() {
@@ -144,7 +145,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 				logrus.WithContext(ctx).WithFields(logrus.Fields{
 					"raddr": raddr.String(),
 					"id":    id,
-				}).Debugf("sync proxy %d data to send list", len(msg.Data))
+				}).Debugf("sync proxy %d data:%d", len(msg.Data), msg.Id)
 				rpc <- msg.Data
 			case *message.HeartbeatMessage:
 				if !msg.NoRelay {
@@ -166,15 +167,22 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 
 	tk := time.NewTicker(10 * time.Second)
 	defer tk.Stop()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	exit := time.NewTimer(time.Second)
+	exit.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-exit.C:
+			return nil
 		case err := <-errCh:
 			if errors.Is(err, io.EOF) {
-				logrus.WithContext(ctx).WithField("id", id).Debug("disconnected wait next session")
-				return nil
+				logrus.WithContext(ctx).WithField("id", id).Debug("disconnected wait all data send")
+				exit.Reset(1 * time.Second)
+				continue
 			}
 			return stderr.Wrap(err)
 		case <-tk.C:
