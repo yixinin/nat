@@ -54,6 +54,8 @@ func Unmarshal(data []byte) (any, error) {
 		msg = &ConnMessage{}
 	case TypeHandShake:
 		msg = &HandShakeMessage{}
+	case TypeHeartbeat:
+		msg = &HeartbeatMessage{}
 	case TypePacket:
 		msg = &PacketMessage{}
 	default:
