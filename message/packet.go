@@ -1,7 +1,7 @@
 package message
 
 type PacketMessage struct {
-	Data []byte
+	Data []byte `json:"data"`
 }
 
 func NewPacketMessage(data []byte) PacketMessage {

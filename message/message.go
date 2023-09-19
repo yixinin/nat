@@ -50,6 +50,8 @@ func Unmarshal(data []byte) (any, error) {
 		msg = &ConnMessage{}
 	case TypeHandShake:
 		msg = &HandShakeMessage{}
+	case TypePacket:
+		msg = &PacketMessage{}
 	default:
 		return nil, stderr.Wrap(ErrorInvalidMessage)
 	}
