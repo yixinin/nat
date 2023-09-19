@@ -38,13 +38,13 @@ func (f *Frontend) Run(ctx context.Context) error {
 		"localAddr": f.localAddr,
 		"fqdn":      f.fqdn,
 	}).Info("frontend exit.")
-	conn, raddr, err := f.stun.Dial(ctx, f.fqdn)
+	dctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	conn, raddr, err := f.stun.Dial(dctx, f.fqdn)
 	if err != nil {
 		return err
 	}
 	t := tunnel.NewFrontendTunnel(f.localAddr, raddr, conn)
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
 
 	return t.Run(ctx)
 }
