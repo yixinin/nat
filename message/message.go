@@ -13,6 +13,8 @@ const (
 	TypeStun      MessageType = 1
 	TypeConn      MessageType = 2
 	TypeHandShake MessageType = 3
+	TypeHeartbeat MessageType = 4
+	TypePacket    MessageType = 4
 )
 
 func (t MessageType) IsValid() bool {

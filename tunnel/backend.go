@@ -2,8 +2,10 @@ package tunnel
 
 import (
 	"context"
+	"nat/message"
 	"net"
 	"runtime/debug"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -81,14 +83,36 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
 				"raddr": raddr.String(),
 			}).Debugf("recv %d data", n)
-			rpc <- buf[:n]
+			msg, err := message.Unmarshal(buf[:n])
+			if err != nil {
+				errCh <- err
+				return
+			}
+			switch msg := msg.(type) {
+			case *message.PacketMessage:
+				rpc <- msg.Data
+			case *message.HeartbeatMessage:
+				if !msg.NoRelay {
+					msg.NoRelay = true
+					data, _ := message.Marshal(msg)
+					t.proxy.WriteToUDP(data, raddr)
+				}
+			}
+
 		}
 	}()
+
+	tk := time.NewTicker(10 * time.Second)
+	defer tk.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-tk.C:
+			msg := message.HeartbeatMessage{}
+			data, _ := message.Marshal(msg)
+			t.proxy.WriteToUDP(data, t.raddr)
 		case data, ok := <-lpc:
 			if !ok {
 				return nil
