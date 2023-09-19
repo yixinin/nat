@@ -23,7 +23,7 @@ func main() {
 	flag.BoolVar(&backend, "b", false, "backend server")
 	flag.BoolVar(&frontend, "f", false, "frontend cient")
 	flag.BoolVar(&ddns, "ddns", false, "run ddns server")
-	flag.StringVar(&stunAddr, "stun", "114.115.218.1:8080", "stun server addr")
+	flag.StringVar(&stunAddr, "stun", "114.115.218.1:2023", "stun server addr")
 	flag.StringVar(&localAddr, "localAddr", "", "listen addr")
 	flag.StringVar(&fqdn, "fqdn", "", "fqdn")
 	flag.Parse()
