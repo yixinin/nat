@@ -130,14 +130,11 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 				errCh <- err
 				return
 			}
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
-				"raddr": raddr.String(),
-			}).Debugf("recv proxy %d %s data", n, msg.Type())
 			switch msg := msg.(type) {
 			case *message.PacketMessage:
 				logrus.WithContext(ctx).WithFields(logrus.Fields{
 					"raddr": raddr.String(),
-				}).Debugf("sync proxy %d data to send list", n)
+				}).Debugf("sync proxy %d data to send list", len(msg.Data))
 				rpc <- msg.Data
 			case *message.HeartbeatMessage:
 				if !msg.NoRelay {
