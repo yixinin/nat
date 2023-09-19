@@ -34,7 +34,7 @@ func (f *Frontend) Run(ctx context.Context) error {
 		"fqdn":      f.fqdn,
 	}).Info("start frontend")
 
-	logrus.WithContext(ctx).WithFields(logrus.Fields{
+	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr": f.localAddr,
 		"fqdn":      f.fqdn,
 	}).Info("frontend exit.")

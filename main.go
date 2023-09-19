@@ -45,7 +45,7 @@ func main() {
 		}
 		s, err := stun.NewServer(localAddr)
 		if err != nil {
-			logrus.Errorf("run stun server error:%v", err)
+			logrus.Errorf("new stun server error:%v", err)
 			return
 		}
 		err = s.Run(ctx)
@@ -53,12 +53,19 @@ func main() {
 			logrus.Errorf("run stun server error:%v", err)
 		}
 	case backend:
-
+		b, err := NewBackend(fqdn, stunAddr)
+		if err != nil {
+			logrus.Errorf("new backend server error:%v", err)
+		}
+		err = b.Run(ctx)
+		if err != nil {
+			logrus.Errorf("run backend error:%v", err)
+		}
 	case frontend:
 		f := NewFrontend(localAddr, stunAddr, fqdn)
 		err := f.Run(ctx)
 		if err != nil {
-			logrus.Errorf("run stun error:%v", err)
+			logrus.Errorf("run frontend error:%v", err)
 		}
 	}
 }
