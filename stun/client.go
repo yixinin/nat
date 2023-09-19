@@ -13,19 +13,19 @@ import (
 )
 
 type Backend struct {
-	A        string
+	FQDN     string
 	stunAddr *net.UDPAddr
 
 	newAccept chan struct{}
 }
 
-func NewBackend(a, stunAddr string) (*Backend, error) {
+func NewBackend(fqdn, stunAddr string) (*Backend, error) {
 	addr, err := net.ResolveUDPAddr("udp", stunAddr)
 	if err != nil {
 		return nil, err
 	}
 	return &Backend{
-		A:        a,
+		FQDN:     fqdn,
 		stunAddr: addr,
 
 		newAccept: make(chan struct{}, 10),
@@ -158,7 +158,7 @@ func (f *Frontend) Dial(ctx context.Context, addr string) (*net.UDPConn, *net.UD
 	var dialStun = func() error {
 		msg := message.StunMessage{
 			ClientType: message.Frontend,
-			A:          addr,
+			FQDN:       addr,
 		}
 		data, err := message.Marshal(msg)
 		if err != nil {

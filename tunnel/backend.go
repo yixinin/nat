@@ -26,6 +26,10 @@ func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, proxy *net.UDPC
 }
 
 func (t *BackendTunnel) Run(ctx context.Context) error {
+	logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"localAddr":  t.localAddr,
+		"remoteAddr": t.remoteAddr.String(),
+	}).Infof("start backend tunnel")
 	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr":  t.localAddr,
 		"remoteAddr": t.remoteAddr.String(),

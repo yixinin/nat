@@ -19,8 +19,8 @@ func NewDns() *Dns {
 	}
 }
 
-func (Dns) akey(a string) string {
-	return fmt.Sprintf("dns/a/%s", a)
+func (Dns) akey(fqnd string) string {
+	return fmt.Sprintf("dns/fqnd/%s", fqnd)
 }
 func (Dns) ipKey(ip string) string {
 	return fmt.Sprintf("/stun/ip/%s", ip)
@@ -29,8 +29,8 @@ func (Dns) pairKey(addr *net.UDPAddr) string {
 	return fmt.Sprintf("/stun/pair/%s", addr.String())
 }
 
-func (d *Dns) GetIP(ctx context.Context, a string) (string, error) {
-	val, err := d.db.Get(ctx, d.akey(a))
+func (d *Dns) GetIP(ctx context.Context, fqdn string) (string, error) {
+	val, err := d.db.Get(ctx, d.akey(fqdn))
 	if err == mem.ErrorNotFound {
 		return "", nil
 	}
@@ -40,8 +40,8 @@ func (d *Dns) GetIP(ctx context.Context, a string) (string, error) {
 	ip, _ := val.(string)
 	return ip, nil
 }
-func (d *Dns) SetIP(ctx context.Context, a string, ip string) error {
-	return d.db.Set(ctx, d.akey(a), ip, 10*time.Minute)
+func (d *Dns) SetIP(ctx context.Context, fqdn string, ip string) error {
+	return d.db.Set(ctx, d.akey(fqdn), ip, 10*time.Minute)
 }
 
 func (d *Dns) GetIPAddr(ctx context.Context, ip string) (*net.UDPAddr, error) {

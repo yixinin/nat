@@ -5,6 +5,8 @@ import (
 	"nat/stun"
 	"nat/tunnel"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Frontend struct {
@@ -14,8 +16,8 @@ type Frontend struct {
 	stun *stun.Frontend
 }
 
-func NewFrontend(localAddr, strunAddr, fqdn string) *Frontend {
-	f, err := stun.NewFrontend(strunAddr)
+func NewFrontend(localAddr, stunAddr, fqdn string) *Frontend {
+	f, err := stun.NewFrontend(stunAddr)
 	if err != nil {
 		return nil
 	}
@@ -27,6 +29,15 @@ func NewFrontend(localAddr, strunAddr, fqdn string) *Frontend {
 }
 
 func (f *Frontend) Run(ctx context.Context) error {
+	logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"localAddr": f.localAddr,
+		"fqdn":      f.fqdn,
+	}).Info("start frontend")
+
+	logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"localAddr": f.localAddr,
+		"fqdn":      f.fqdn,
+	}).Info("frontend exit.")
 	conn, raddr, err := f.stun.Dial(ctx, f.fqdn)
 	if err != nil {
 		return err

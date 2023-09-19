@@ -16,7 +16,7 @@ func (t ClientType) IsValid() bool {
 
 type StunMessage struct {
 	ClientType ClientType `json:"-"`
-	A          string     `json:"a"`
+	FQDN       string     `json:"fqnd"`
 }
 
 func (m *StunMessage) SetHeader(data []byte) (int, error) {

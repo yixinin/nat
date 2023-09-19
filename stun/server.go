@@ -16,11 +16,11 @@ type Server struct {
 	localAddr *net.UDPAddr
 }
 
-func NewServer(laddr string) (*Server, error) {
+func NewServer(localAddr string) (*Server, error) {
 	s := &Server{
 		dns: NewDns(),
 	}
-	addr, err := net.ResolveUDPAddr("udp", laddr)
+	addr, err := net.ResolveUDPAddr("udp", localAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +29,9 @@ func NewServer(laddr string) (*Server, error) {
 }
 
 func (s *Server) Run(ctx context.Context) error {
+	logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"localAddr": s.localAddr.String(),
+	}).Infof("start stun server")
 	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr": s.localAddr.String(),
 	}).Infof("stun server exit.")
@@ -67,7 +70,7 @@ func (s *Server) Run(ctx context.Context) error {
 				}
 				switch m.ClientType {
 				case message.Backend:
-					if err := s.dns.SetIP(ctx, m.A, remoteIP); err != nil {
+					if err := s.dns.SetIP(ctx, m.FQDN, remoteIP); err != nil {
 						return err
 					}
 
@@ -75,7 +78,7 @@ func (s *Server) Run(ctx context.Context) error {
 						return err
 					}
 				case m.ClientType:
-					targetIP, err := s.dns.GetIP(ctx, m.A)
+					targetIP, err := s.dns.GetIP(ctx, m.FQDN)
 					if err != nil {
 						return err
 					}
