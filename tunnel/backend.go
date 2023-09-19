@@ -136,7 +136,7 @@ func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan mess
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+				log.WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
 		}()
 		var buf = make([]byte, message.BufferSize)

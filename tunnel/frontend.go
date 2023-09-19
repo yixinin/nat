@@ -57,7 +57,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+				log.WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
 			close(connCh)
 		}()
@@ -101,7 +101,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			chRw.Unlock()
 			go func(msg message.TunnelMessage) {
 				if err := t.handle(ctx, sessid.Load(), conn, ch); err != nil {
-					logrus.WithContext(ctx).WithField("id", sessid.Load()).Errorf("handle proxy error:%v", err)
+					log.WithField("id", sessid.Load()).Errorf("handle proxy error:%v", err)
 				}
 
 				chRw.Lock()
@@ -138,6 +138,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 
 func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn, msgCh chan message.PacketMessage) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"id":    id,
 		"laddr": t.localAddr,
 	})
 	log.Debugf("start handle:%d", id)
@@ -152,7 +153,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn, m
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+				log.WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
 		}()
 		var buf = make([]byte, message.BufferSize)

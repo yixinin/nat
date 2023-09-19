@@ -11,12 +11,11 @@ import (
 )
 
 func handshake(ctx context.Context, conn *net.UDPConn, raddr *net.UDPAddr) error {
-	logrus.WithContext(ctx).WithFields(logrus.Fields{
+	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"remoteAddr": raddr.String(),
-	}).Info("start handshake")
-	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"remoteAddr": raddr.String(),
-	}).Info("handshake exit.")
+	})
+	log.Info("start handshake")
+	defer log.Info("handshake exit.")
 	tk := time.NewTicker(time.Second)
 	defer tk.Stop()
 	for {
@@ -31,7 +30,7 @@ func handshake(ctx context.Context, conn *net.UDPConn, raddr *net.UDPAddr) error
 			}
 
 			n, err := conn.WriteToUDP(data, raddr)
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
+			log.WithFields(logrus.Fields{
 				"raddr": raddr.String(),
 			}).Debugf("send %d data:%v", n, msg)
 			if err != nil {

@@ -30,15 +30,13 @@ func NewFrontend(localAddr, stunAddr, fqdn string) *Frontend {
 }
 
 func (f *Frontend) Run(ctx context.Context) error {
-	logrus.WithContext(ctx).WithFields(logrus.Fields{
+	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr": f.localAddr,
 		"fqdn":      f.fqdn,
-	}).Info("start frontend")
+	})
+	log.Info("start frontend")
 
-	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"localAddr": f.localAddr,
-		"fqdn":      f.fqdn,
-	}).Info("frontend exit.")
+	defer log.Info("frontend exit.")
 	dctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	conn, raddr, err := f.stun.Dial(dctx, f.fqdn)

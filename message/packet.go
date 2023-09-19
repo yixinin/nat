@@ -5,7 +5,7 @@ import (
 	"nat/stderr"
 )
 
-const BufferSize = 1400
+const BufferSize = 1024 * 2
 const PacketSize = BufferSize - 1 - 16
 
 type PacketMessage struct {

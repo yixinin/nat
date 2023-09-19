@@ -36,12 +36,11 @@ type RemoteData struct {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	logrus.WithContext(ctx).WithFields(logrus.Fields{
+	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr": s.localAddr.String(),
-	}).Infof("start stun server")
-	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"localAddr": s.localAddr.String(),
-	}).Infof("stun server exit.")
+	})
+	log.Infof("start stun server")
+	defer log.Infof("stun server exit.")
 
 	conn, err := net.ListenUDP("udp", s.localAddr)
 	if err != nil {
@@ -56,19 +55,15 @@ func (s *Server) Run(ctx context.Context) error {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+				log.WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
 			close(dataCh)
 		}()
 		var buf = make([]byte, message.BufferSize)
 		for {
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
-				"laddr": s.localAddr,
-			}).Debugf("try read, buffer size:%d", len(buf))
-
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
+				log.WithFields(logrus.Fields{
 					"laddr": s.localAddr,
 				}).Debug("read timeout")
 				continue
@@ -78,12 +73,10 @@ func (s *Server) Run(ctx context.Context) error {
 				return
 			}
 			if n == 0 {
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
-					"raddr": raddr,
-				}).Debug("read no data")
+				log.Debug("read no data")
 				continue
 			}
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
+			log.WithFields(logrus.Fields{
 				"raddr": raddr.String(),
 				"laddr": s.localAddr,
 			}).Debugf("recved %d data", n)
@@ -102,7 +95,7 @@ func (s *Server) Run(ctx context.Context) error {
 			return stderr.Wrap(err)
 		case d, ok := <-dataCh:
 			if !ok && d.data == nil {
-				logrus.WithContext(ctx).Debug("data ch closed!")
+				log.Debug("data ch closed!")
 				return nil
 			}
 			err := func() error {
@@ -113,16 +106,13 @@ func (s *Server) Run(ctx context.Context) error {
 				}
 				m, ok := msg.(*message.StunMessage)
 				if !ok {
-					logrus.WithContext(ctx).WithFields(logrus.Fields{
+					log.WithFields(logrus.Fields{
 						"raddr": d.addr.String(),
 						"laddr": s.localAddr,
 					}).Debugf("recved unknown data:%s", reflect.TypeOf(msg))
 					return nil
 				}
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
-					"raddr": d.addr.String(),
-					"laddr": s.localAddr,
-				}).Debugf("recved data:%v", msg)
+				log.Debugf("recv data:%v", msg)
 				switch m.ClientType {
 				case message.Backend:
 					if err := s.dns.SetIP(ctx, m.FQDN, remoteIP); err != nil {
@@ -167,7 +157,7 @@ func (s *Server) Run(ctx context.Context) error {
 						}
 
 						n, err := conn.WriteToUDP(data, targetAddr)
-						logrus.WithContext(ctx).WithFields(logrus.Fields{
+						log.WithFields(logrus.Fields{
 							"raddr": targetAddr,
 						}).Debugf("send %d data:%v", n, msg)
 						if err != nil {
@@ -185,9 +175,7 @@ func (s *Server) Run(ctx context.Context) error {
 							return stderr.Wrap(err)
 						}
 						n, err := conn.WriteToUDP(body, d.addr)
-						logrus.WithContext(ctx).WithFields(logrus.Fields{
-							"raddr": d.addr,
-						}).Debugf("send %d data:%v", n, msg)
+						log.Debugf("send %d data:%v", n, msg)
 						if err != nil {
 							return stderr.Wrap(err)
 						}
@@ -196,7 +184,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil
 			}()
 			if err != nil {
-				logrus.WithContext(ctx).Error(err)
+				log.Error(err)
 			}
 		}
 	}

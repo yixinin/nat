@@ -25,6 +25,12 @@ func NewFrontend(stunAddr string) (*Frontend, error) {
 }
 
 func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UDPAddr, error) {
+	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"fqdn": fqdn,
+	})
+	log.Info("start dial")
+	defer log.Info("dial exit.")
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -40,7 +46,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			return stderr.Wrap(err)
 		}
 		n, err := conn.WriteToUDP(data, f.stunAddr)
-		logrus.WithContext(ctx).WithFields(logrus.Fields{
+		log.WithFields(logrus.Fields{
 			"raddr": f.stunAddr.String(),
 		}).Debugf("send %d data:%v", n, msg)
 		return stderr.Wrap(err)
@@ -60,7 +66,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+				log.WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
 			close(dataCh)
 		}()
@@ -68,7 +74,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {
-				logrus.WithContext(ctx).Debug("read timeout")
+				log.Debug("read timeout")
 				continue
 			}
 			if err != nil {
@@ -76,12 +82,12 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 				return
 			}
 			if n == 0 {
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
+				log.WithFields(logrus.Fields{
 					"raddr": raddr,
 				}).Debug("read no data")
 				continue
 			}
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
+			log.WithFields(logrus.Fields{
 				"raddr": raddr.String(),
 				"fqdn":  fqdn,
 			}).Debugf("recved %d data", n)
@@ -108,7 +114,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			if err != nil {
 				return nil, nil, stderr.Wrap(err)
 			}
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
+			log.WithFields(logrus.Fields{
 				"raddr": d.addr.String(),
 				"fqdn":  fqdn,
 			}).Debugf("recved data:%v", msg)
@@ -119,12 +125,12 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 				defer cancel()
 				err := handshake(ctx, conn, msg.RemoteAddr)
 				if os.IsTimeout(err) {
-					logrus.WithContext(ctx).Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 3)
+					log.Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 3)
 					tk.Reset(3 * time.Second)
 					continue
 				}
 				if err != nil {
-					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
+					log.Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
 					return nil, nil, stderr.Wrap(err)
 				}
 			case *message.HandShakeMessage:

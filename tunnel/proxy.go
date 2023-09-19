@@ -74,6 +74,11 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 }
 
 func (p *Proxy) loop(ctx context.Context) {
+	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"raddr": p.raddr.String(),
+	})
+	log.Info("start proxy loop")
+	defer log.Info("proxy loop exit.")
 	tk := time.NewTicker(10 * time.Second)
 	defer tk.Stop()
 	for {
@@ -93,11 +98,11 @@ func (p *Proxy) loop(ctx context.Context) {
 			}
 			n, err := p.rconn.WriteToUDP(data, p.raddr)
 			if err != nil {
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
+				log.WithFields(logrus.Fields{
 					"raddr": p.raddr.String(),
 				}).Debugf("send proxy msg:%s error:%v", msg.Type(), err)
 			} else {
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
+				log.WithFields(logrus.Fields{
 					"raddr": p.raddr.String(),
 				}).Debugf("send proxy msg:%s size:%d", msg.Type(), n)
 			}

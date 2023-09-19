@@ -37,14 +37,12 @@ func (b *Backend) NewAccept() chan struct{} {
 }
 
 func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error) {
-	logrus.WithContext(ctx).WithFields(logrus.Fields{
+	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"stunAddr": b.stunAddr.String(),
 		"fqdn":     b.FQDN,
-	}).Info("start accept")
-	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"stunAddr": b.stunAddr.String(),
-		"fqdn":     b.FQDN,
-	}).Info("accept exit.")
+	})
+	log.Info("start accept")
+	defer log.Info("accept exit.")
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -61,7 +59,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			return stderr.Wrap(err)
 		}
 		n, err := conn.WriteToUDP(data, b.stunAddr)
-		logrus.WithContext(ctx).WithFields(logrus.Fields{
+		log.WithFields(logrus.Fields{
 			"raddr": b.stunAddr.String(),
 		}).Debugf("send %d data:%v", n, msg)
 		return stderr.Wrap(err)
@@ -81,7 +79,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+				log.WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
 			close(dataCh)
 		}()
@@ -89,7 +87,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {
-				logrus.WithContext(ctx).Debug("read timeout")
+				log.Debug("read timeout")
 				continue
 			}
 			if err != nil {
@@ -97,12 +95,12 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				return
 			}
 			if n == 0 {
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
+				log.WithFields(logrus.Fields{
 					"raddr": raddr,
 				}).Debug("read no data")
 				continue
 			}
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
+			log.WithFields(logrus.Fields{
 				"raddr": raddr.String(),
 				"fqdn":  b.FQDN,
 			}).Debugf("recved %d data", n)
@@ -129,7 +127,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			if err != nil {
 				return nil, nil, stderr.Wrap(err)
 			}
-			logrus.WithContext(ctx).WithFields(logrus.Fields{
+			log.WithFields(logrus.Fields{
 				"raddr": d.addr.String(),
 				"fqdn":  b.FQDN,
 			}).Debugf("recved data:%v", msg)
@@ -140,16 +138,16 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				defer cancel()
 				err := handshake(ctx, conn, msg.RemoteAddr)
 				if os.IsTimeout(err) {
-					logrus.WithContext(ctx).Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 10)
+					log.Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 10)
 					tk.Reset(10 * time.Second)
 					continue
 				}
 				if err != nil {
-					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
+					log.Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
 					return nil, nil, stderr.Wrap(err)
 				}
 				if err == nil {
-					logrus.Debugf("accept new ...")
+					log.Debugf("accept new ...")
 					b.newAccept <- struct{}{}
 				}
 			case *message.HandShakeMessage:
