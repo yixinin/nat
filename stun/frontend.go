@@ -2,7 +2,6 @@ package stun
 
 import (
 	"context"
-	"errors"
 	"nat/message"
 	"net"
 	"os"
@@ -118,10 +117,14 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
 				err := handshake(ctx, conn, msg.RemoteAddr)
-				if err != nil && !errors.Is(err, ctx.Err()) {
-					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
+				if os.IsTimeout(err) {
+					logrus.WithContext(ctx).Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 3)
 					tk.Reset(3 & time.Second)
 					continue
+				}
+				if err != nil {
+					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
+					return nil, nil, err
 				}
 			case *message.HandShakeMessage:
 				// received handshake, success.

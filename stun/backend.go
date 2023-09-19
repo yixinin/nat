@@ -2,7 +2,6 @@ package stun
 
 import (
 	"context"
-	"errors"
 	"nat/message"
 	"net"
 	"os"
@@ -139,10 +138,14 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
 				err := handshake(ctx, conn, msg.RemoteAddr)
-				if err != nil && !errors.Is(err, ctx.Err()) {
-					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
-					tk.Reset(10 * time.Second)
+				if os.IsTimeout(err) {
+					logrus.WithContext(ctx).Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 10)
+					tk.Reset(10 & time.Second)
 					continue
+				}
+				if err != nil {
+					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
+					return nil, nil, err
 				}
 				if err == nil {
 					b.newAccept <- struct{}{}
