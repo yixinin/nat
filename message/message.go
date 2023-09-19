@@ -1,7 +1,6 @@
 package message
 
 import (
-	"encoding/json"
 	"errors"
 	"nat/stderr"
 )
@@ -32,6 +31,7 @@ type Message interface {
 
 type MessageUnmarshal interface {
 	SetHeader(header []byte) (int, error)
+	SetData(data []byte) (int, error)
 }
 
 type MessageMarshal interface {
@@ -61,7 +61,7 @@ func Unmarshal(data []byte) (any, error) {
 	if err != nil {
 		return nil, stderr.Wrap(err)
 	}
-	err = json.Unmarshal(data[n:], msg)
+	_, err = msg.SetData(data[n:])
 	return msg, err
 }
 

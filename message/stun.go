@@ -28,6 +28,11 @@ func NewStunMessage(t ClientType, fqdn string) StunMessage {
 	}
 }
 
+func (m *StunMessage) SetData(data []byte) (int, error) {
+	m.FQDN = string(data)
+	return len(data), nil
+}
+
 func (m *StunMessage) SetHeader(data []byte) (int, error) {
 	if len(data) < 2 {
 		return 0, ErrorInvalidMessage
@@ -49,5 +54,5 @@ func (m StunMessage) GetHeader() ([]byte, error) {
 	return []byte{byte(TypeStun), byte(m.ClientType)}, nil
 }
 func (m StunMessage) GetData() ([]byte, error) {
-	return nil, nil
+	return []byte(m.FQDN), nil
 }

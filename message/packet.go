@@ -22,6 +22,11 @@ func NewPacketMessage(data []byte) []PacketMessage {
 	return ps
 }
 
+func (m *PacketMessage) SetData(data []byte) (int, error) {
+	m.Data = data
+	return len(data), nil
+}
+
 func (m *PacketMessage) SetHeader(data []byte) (int, error) {
 	if len(data) < 1 {
 		return 0, ErrorInvalidMessage

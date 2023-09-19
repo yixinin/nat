@@ -15,10 +15,18 @@ func (m *ConnMessage) SetHeader(data []byte) (int, error) {
 	}
 	return 1, nil
 }
+func (m *ConnMessage) SetData(data []byte) (int, error) {
+	addr, err := net.ResolveUDPAddr("udp", string(data))
+	if err != nil {
+		return 0, err
+	}
+	m.RemoteAddr = addr
+	return len(data), nil
+}
 
 func (m ConnMessage) GetHeader() ([]byte, error) {
 	return []byte{byte(TypeConn)}, nil
 }
 func (m ConnMessage) GetData() ([]byte, error) {
-	return nil, nil
+	return []byte(m.RemoteAddr.String()), nil
 }
