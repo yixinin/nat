@@ -86,6 +86,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {
+				logrus.WithContext(ctx).Debug("read timeout")
 				continue
 			}
 			if err != nil {
@@ -93,6 +94,9 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				return
 			}
 			if n == 0 {
+				logrus.WithContext(ctx).WithFields(logrus.Fields{
+					"raddr": raddr,
+				}).Debug("read no data")
 				continue
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
@@ -230,6 +234,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {
+				logrus.WithContext(ctx).Debug("read timeout")
 				continue
 			}
 			if err != nil {
@@ -237,6 +242,9 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 				return
 			}
 			if n == 0 {
+				logrus.WithContext(ctx).WithFields(logrus.Fields{
+					"raddr": raddr,
+				}).Debug("read no data")
 				continue
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{

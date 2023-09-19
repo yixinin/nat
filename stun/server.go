@@ -56,6 +56,9 @@ func (s *Server) Run(ctx context.Context) error {
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {
+				logrus.WithContext(ctx).WithFields(logrus.Fields{
+					"laddr": s.localAddr,
+				}).Debug("read timeout")
 				continue
 			}
 			if err != nil {
@@ -63,6 +66,9 @@ func (s *Server) Run(ctx context.Context) error {
 				return
 			}
 			if n == 0 {
+				logrus.WithContext(ctx).WithFields(logrus.Fields{
+					"raddr": raddr,
+				}).Debug("read no data")
 				continue
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
@@ -139,7 +145,11 @@ func (s *Server) Run(ctx context.Context) error {
 					if err != nil {
 						return err
 					}
-					_, err = conn.WriteToUDP(data, targetAddr)
+
+					n, err := conn.WriteToUDP(data, targetAddr)
+					logrus.WithContext(ctx).WithFields(logrus.Fields{
+						"raddr": targetAddr,
+					}).Debugf("send %d data:%v", n, msg)
 					if err != nil {
 						return err
 					}
@@ -154,7 +164,10 @@ func (s *Server) Run(ctx context.Context) error {
 					if err != nil {
 						return err
 					}
-					_, err = conn.WriteToUDP(body, item.addr)
+					n, err := conn.WriteToUDP(body, item.addr)
+					logrus.WithContext(ctx).WithFields(logrus.Fields{
+						"raddr": item.addr,
+					}).Debugf("send %d data:%v", n, msg)
 					if err != nil {
 						return err
 					}
