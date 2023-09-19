@@ -55,9 +55,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 	}
 
 	var syncStun = func() error {
-		msg := message.StunMessage{
-			ClientType: message.Backend,
-		}
+		msg := message.NewStunMessage(message.Backend, b.FQDN)
 		data, err := message.Marshal(msg)
 		if err != nil {
 			return err
@@ -182,10 +180,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 	}
 
 	var dialStun = func() error {
-		msg := message.StunMessage{
-			ClientType: message.Frontend,
-			FQDN:       fqdn,
-		}
+		msg := message.NewStunMessage(message.Frontend, fqdn)
 		data, err := message.Marshal(msg)
 		if err != nil {
 			return err

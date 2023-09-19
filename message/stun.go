@@ -19,6 +19,13 @@ type StunMessage struct {
 	FQDN       string     `json:"fqnd"`
 }
 
+func NewStunMessage(t ClientType, fqdn string) StunMessage {
+	return StunMessage{
+		ClientType: t,
+		FQDN:       fqdn,
+	}
+}
+
 func (m *StunMessage) SetHeader(data []byte) (int, error) {
 	if len(data) < 2 {
 		return 0, ErrorInvalidMessage
