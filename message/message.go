@@ -2,10 +2,13 @@ package message
 
 import (
 	"errors"
+	"fmt"
 	"nat/stderr"
 )
 
 var ErrorInvalidMessage = errors.New("invalid message")
+
+const CodeInvalid = "invalid"
 
 type MessageType byte
 
@@ -41,10 +44,10 @@ type MessageMarshal interface {
 
 func Unmarshal(data []byte) (any, error) {
 	if len(data) == 0 {
-		return nil, stderr.Wrap(ErrorInvalidMessage)
+		return nil, stderr.Wrap(fmt.Errorf("empty data"))
 	}
 	var msg MessageUnmarshal
-	switch MessageType(data[0]) {
+	switch t := MessageType(data[0]); t {
 	case TypeStun:
 		msg = &StunMessage{}
 	case TypeConn:
@@ -54,7 +57,7 @@ func Unmarshal(data []byte) (any, error) {
 	case TypePacket:
 		msg = &PacketMessage{}
 	default:
-		return nil, stderr.Wrap(ErrorInvalidMessage)
+		return nil, stderr.Wrap(fmt.Errorf("unknown msg type:%d", t))
 	}
 
 	n, err := msg.SetHeader(data)

@@ -1,15 +1,17 @@
 package message
 
+import "nat/stderr"
+
 type HeartbeatMessage struct {
 	NoRelay bool `json:"-"`
 }
 
 func (m *HeartbeatMessage) SetHeader(data []byte) (int, error) {
 	if len(data) < 2 {
-		return 0, ErrorInvalidMessage
+		return 0, stderr.New(CodeInvalid, "header size < 2")
 	}
 	if MessageType(data[0]) != TypeHeartbeat {
-		return 0, ErrorInvalidMessage
+		return 0, stderr.New(CodeInvalid, "not hb msg")
 	}
 	m.NoRelay = data[1] == 1
 	return 2, nil

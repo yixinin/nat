@@ -1,6 +1,9 @@
 package message
 
-import "net"
+import (
+	"nat/stderr"
+	"net"
+)
 
 type ConnMessage struct {
 	RemoteAddr *net.UDPAddr `json:"raddr"`
@@ -8,10 +11,10 @@ type ConnMessage struct {
 
 func (m *ConnMessage) SetHeader(data []byte) (int, error) {
 	if len(data) < 1 {
-		return 0, ErrorInvalidMessage
+		return 0, stderr.New(CodeInvalid, "header data size < 1")
 	}
 	if MessageType(data[0]) != TypeConn {
-		return 0, ErrorInvalidMessage
+		return 0, stderr.New(CodeInvalid, "not conn msg")
 	}
 	return 1, nil
 }

@@ -2,6 +2,7 @@ package message
 
 import (
 	"encoding/binary"
+	"nat/stderr"
 	"sync/atomic"
 )
 
@@ -38,7 +39,7 @@ func NewPacketMessage(data []byte) []PacketMessage {
 
 func (m *PacketMessage) SetData(data []byte) (int, error) {
 	if len(data) < 8 {
-		return 0, ErrorInvalidMessage
+		return 0, stderr.New(CodeInvalid, "data size < 8")
 	}
 	m.Id = binary.BigEndian.Uint64(data[:8])
 	m.Data = data[8:]
@@ -47,10 +48,10 @@ func (m *PacketMessage) SetData(data []byte) (int, error) {
 
 func (m *PacketMessage) SetHeader(data []byte) (int, error) {
 	if len(data) < 1 {
-		return 0, ErrorInvalidMessage
+		return 0, stderr.New(CodeInvalid, "header size < 1")
 	}
 	if MessageType(data[0]) != TypePacket {
-		return 0, ErrorInvalidMessage
+		return 0, stderr.New(CodeInvalid, "not packet msg")
 	}
 	return 1, nil
 }
