@@ -114,13 +114,15 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			}).Debugf("recved data:%v", msg)
 			switch msg := msg.(type) {
 			case *message.ConnMessage:
-				go func() {
-					err := handshake(ctx, conn, msg.RemoteAddr)
-					if err != nil && !errors.Is(err, ctx.Err()) {
-						logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
-						cancel()
-					}
-				}()
+				tk.Stop()
+				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				err := handshake(ctx, conn, msg.RemoteAddr)
+				if err != nil && !errors.Is(err, ctx.Err()) {
+					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
+					tk.Reset(3 & time.Second)
+					continue
+				}
 			case *message.HandShakeMessage:
 				// received handshake, success.
 				cancel()

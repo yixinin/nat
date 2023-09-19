@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"runtime/debug"
-	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -75,8 +74,6 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 	var tk = time.NewTicker(10 * time.Second)
 	defer tk.Stop()
 
-	once := sync.Once{}
-
 	var errCh = make(chan error, 1)
 	defer close(errCh)
 	var dataCh = make(chan RemoteData, 1)
@@ -138,20 +135,20 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			}).Debugf("recved data:%v", msg)
 			switch msg := msg.(type) {
 			case *message.ConnMessage:
-				once.Do(func() {
+				tk.Stop()
+				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				err := handshake(ctx, conn, msg.RemoteAddr)
+				if err != nil && !errors.Is(err, ctx.Err()) {
+					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
+					tk.Reset(10 * time.Second)
+					continue
+				}
+				if err == nil {
 					b.newAccept <- struct{}{}
-					go func() {
-						err := handshake(ctx, conn, msg.RemoteAddr)
-						if err != nil && !errors.Is(err, ctx.Err()) {
-							logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
-							cancel()
-						}
-					}()
-				})
-
+				}
 			case *message.HandShakeMessage:
 				// received handshake, success.
-				cancel()
 				return conn, d.addr, nil
 			}
 		}
