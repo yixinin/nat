@@ -98,12 +98,13 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 	defer close(errCh)
 
 	lpc := make(chan []byte, 1)
+	defer close(lpc)
+
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
-			close(lpc)
 		}()
 		var buf = make([]byte, message.BufferSize)
 		for {
@@ -118,12 +119,12 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 	}()
 
 	rpc := make(chan []byte, 1)
+	defer close(rpc)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
-			close(rpc)
 		}()
 		var buf = make([]byte, message.BufferSize)
 		for {
@@ -172,7 +173,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 			return ctx.Err()
 		case err := <-errCh:
 			if errors.Is(err, io.EOF) {
-				logrus.WithContext(ctx).Debug("disconnected wait next session")
+				logrus.WithContext(ctx).WithField("id", id).Debug("disconnected wait next session")
 				return nil
 			}
 			return stderr.Wrap(err)
@@ -182,7 +183,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 			t.proxy.WriteToUDP(data, t.raddr)
 		case data, ok := <-lpc:
 			if !ok && len(data) == 0 {
-				logrus.Debug("local lpc chan closed!")
+				logrus.WithField("id", id).Debug("local lpc chan closed!")
 				return nil
 			}
 			msgs := message.NewPacketMessage(data)
@@ -199,7 +200,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 			}
 		case data, ok := <-rpc:
 			if !ok && len(data) == 0 {
-				logrus.Debug("local rpc chan closed!")
+				logrus.WithField("id", id).Debug("local rpc chan closed!")
 				return nil
 			}
 			logrus.WithContext(ctx).WithField("id", id).Debugf("ready send local %d data", len(data))
@@ -207,7 +208,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 			if err != nil {
 				return stderr.Wrap(err)
 			}
-			logrus.WithContext(ctx).Debugf("send local %d data", n)
+			logrus.WithContext(ctx).WithField("id", id).Debugf("send local %d data", n)
 		}
 	}
 }

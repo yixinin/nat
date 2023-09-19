@@ -49,12 +49,12 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	defer close(errCh)
 
 	lpc := make(chan []byte, 1)
+	defer close(lpc)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
-			close(lpc)
 		}()
 		var buf = make([]byte, message.BufferSize)
 		for {
@@ -72,12 +72,12 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	}()
 
 	rpc := make(chan []byte, 1)
+	defer close(rpc)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
-			close(rpc)
 		}()
 		var buf = make([]byte, message.BufferSize)
 		for {
