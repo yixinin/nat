@@ -38,6 +38,7 @@ func (b *Backend) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-b.stun.NewAccept():
+			logrus.Debugf("accept new conn...")
 			go b.accept(ctx)
 		}
 	}

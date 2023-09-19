@@ -148,6 +148,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 					return nil, nil, err
 				}
 				if err == nil {
+					logrus.Debugf("accept new ...")
 					b.newAccept <- struct{}{}
 				}
 			case *message.HandShakeMessage:
