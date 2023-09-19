@@ -12,17 +12,16 @@ import (
 )
 
 type FrontendTunnel struct {
-	localAddr  string
-	remoteAddr *net.UDPAddr
-	proxy      *net.UDPConn
-	raddr      *net.UDPAddr
+	localAddr string
+	proxy     *net.UDPConn
+	raddr     *net.UDPAddr
 }
 
 func NewFrontendTunnel(localAddr string, remoteAddr *net.UDPAddr, proxy *net.UDPConn) *FrontendTunnel {
 	t := &FrontendTunnel{
-		localAddr:  localAddr,
-		remoteAddr: remoteAddr,
-		proxy:      proxy,
+		localAddr: localAddr,
+		raddr:     remoteAddr,
+		proxy:     proxy,
 	}
 	return t
 }
@@ -30,11 +29,11 @@ func NewFrontendTunnel(localAddr string, remoteAddr *net.UDPAddr, proxy *net.UDP
 func (t *FrontendTunnel) Run(ctx context.Context) error {
 	logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr":  t.localAddr,
-		"remoteAddr": t.remoteAddr.String(),
+		"remoteAddr": t.raddr.String(),
 	}).Infof("start frontend tunnel")
 	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr":  t.localAddr,
-		"remoteAddr": t.remoteAddr.String(),
+		"remoteAddr": t.raddr.String(),
 	}).Infof("frontend tunnel exit.")
 
 	lis, err := net.Listen("tcp", t.localAddr)

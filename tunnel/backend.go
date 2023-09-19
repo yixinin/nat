@@ -12,8 +12,7 @@ import (
 )
 
 type BackendTunnel struct {
-	localAddr  string
-	remoteAddr *net.UDPAddr
+	localAddr string
 
 	proxy *net.UDPConn
 	raddr *net.UDPAddr
@@ -21,9 +20,9 @@ type BackendTunnel struct {
 
 func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, proxy *net.UDPConn) *BackendTunnel {
 	t := &BackendTunnel{
-		localAddr:  localAddr,
-		remoteAddr: remoteAddr,
-		proxy:      proxy,
+		localAddr: localAddr,
+		raddr:     remoteAddr,
+		proxy:     proxy,
 	}
 	return t
 }
@@ -31,11 +30,11 @@ func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, proxy *net.UDPC
 func (t *BackendTunnel) Run(ctx context.Context) error {
 	logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr":  t.localAddr,
-		"remoteAddr": t.remoteAddr.String(),
+		"remoteAddr": t.raddr.String(),
 	}).Infof("start backend tunnel")
 	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr":  t.localAddr,
-		"remoteAddr": t.remoteAddr.String(),
+		"remoteAddr": t.raddr.String(),
 	}).Infof("backend tunnel exit.")
 	conn, err := net.Dial("tcp", t.localAddr)
 	if err != nil {
