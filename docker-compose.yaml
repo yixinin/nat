@@ -10,7 +10,7 @@ services:
       - '-b'
       - '-laddr'
       - '127.0.0.1:5212'
-      - fqdn
+      - '-fqdn'
       - 'drive.iakl.top'
-      - stun
+      - '-stun'
       - '114.115.218.1:2023'
