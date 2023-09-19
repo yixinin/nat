@@ -86,6 +86,12 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 }
 
 func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
+	logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"laddr": t.localAddr,
+	}).Debugf("start handle:%v", conn)
+	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"laddr": t.localAddr,
+	}).Debugf("handle:%v exit.", conn)
 	var errCh = make(chan error, 1)
 	defer close(errCh)
 
