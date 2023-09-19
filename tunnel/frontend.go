@@ -189,6 +189,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 				logrus.Debug("local rpc chan closed!")
 				return nil
 			}
+			logrus.WithContext(ctx).Debugf("ready send local %d data", len(data))
 			n, err := conn.Write(data)
 			if err != nil {
 				return stderr.Wrap(err)
