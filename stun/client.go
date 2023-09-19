@@ -6,6 +6,7 @@ import (
 	"nat/message"
 	"net"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -81,8 +82,13 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 	var dataCh = make(chan RemoteData, 1)
 
 	go func() {
-		defer close(dataCh)
-		var buf = make([]byte, 1500)
+		defer func() {
+			if r := recover(); r != nil {
+				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+			}
+			close(dataCh)
+		}()
+		var buf = make([]byte, 1024)
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {
@@ -229,8 +235,13 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 	var dataCh = make(chan RemoteData, 1)
 
 	go func() {
-		defer close(dataCh)
-		var buf = make([]byte, 1500)
+		defer func() {
+			if r := recover(); r != nil {
+				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+			}
+			close(dataCh)
+		}()
+		var buf = make([]byte, 1024)
 		for {
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {

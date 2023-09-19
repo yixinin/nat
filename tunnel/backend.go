@@ -51,7 +51,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			}
 			close(lpc)
 		}()
-		var buf = make([]byte, 1500)
+		var buf = make([]byte, 1024)
 		for {
 			n, err := conn.Read(buf)
 			if err != nil {
@@ -71,7 +71,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			}
 			close(rpc)
 		}()
-		var buf = make([]byte, 1500)
+		var buf = make([]byte, 1024)
 		for {
 			n, raddr, err := t.proxy.ReadFromUDP(buf)
 			if err != nil {

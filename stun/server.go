@@ -5,6 +5,7 @@ import (
 	"nat/message"
 	"net"
 	"os"
+	"runtime/debug"
 
 	"github.com/sirupsen/logrus"
 )
@@ -51,9 +52,19 @@ func (s *Server) Run(ctx context.Context) error {
 	var dataCh = make(chan RemoteData, 1)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+			}
+			close(dataCh)
+		}()
 		defer close(dataCh)
-		var buf = make([]byte, 1500)
+		var buf = make([]byte, 1024)
 		for {
+			logrus.WithContext(ctx).WithFields(logrus.Fields{
+				"laddr": s.localAddr,
+			}).Debugf("try read, buffer size:%d", len(buf))
+
 			n, raddr, err := conn.ReadFromUDP(buf)
 			if os.IsTimeout(err) {
 				logrus.WithContext(ctx).WithFields(logrus.Fields{
@@ -93,10 +104,9 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil
 			}
 			var remoteIP = item.addr.IP.String()
-
 			msg, err := message.Unmarshal(item.data)
 			if err != nil {
-				return nil
+				return err
 			}
 			m, ok := msg.(*message.StunMessage)
 			if !ok {
@@ -172,7 +182,6 @@ func (s *Server) Run(ctx context.Context) error {
 						return err
 					}
 				}
-
 			}
 
 			if err != nil {
