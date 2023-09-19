@@ -33,12 +33,15 @@ func main() {
 	var ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	switch {
-	case ddns:
-		err := NewDdns().Run(ctx)
-		if err != nil {
-			logrus.Errorf("run ddns error:%v", err)
-		}
 	case stunServer:
+		if ddns {
+			go func() {
+				err := NewDdns().Run(ctx)
+				if err != nil {
+					logrus.Errorf("run ddns error:%v", err)
+				}
+			}()
+		}
 		s, err := stun.NewServer(localAddr)
 		if err != nil {
 			logrus.Errorf("run stun server error:%v", err)

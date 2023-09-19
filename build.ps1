@@ -2,6 +2,6 @@ $env:GOOS="linux"
 $env:GOARCh="amd64"
 go build
 $env:GOOS="windows"
-$env:GOARCh="amd64"
+$env:GOARCh="arm64"
 go build
-scp nat hw:nat
+scp nat hw:app/nat/nat
