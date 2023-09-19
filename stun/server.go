@@ -100,27 +100,27 @@ func (s *Server) Run(ctx context.Context) error {
 			return ctx.Err()
 		case err := <-errCh:
 			return stderr.Wrap(err)
-		case item, ok := <-dataCh:
-			if !ok {
+		case d, ok := <-dataCh:
+			if !ok && d.data == nil {
 				logrus.WithContext(ctx).Debug("data ch closed!")
 				return nil
 			}
 			err := func() error {
-				var remoteIP = item.addr.IP.String()
-				msg, err := message.Unmarshal(item.data)
+				var remoteIP = d.addr.IP.String()
+				msg, err := message.Unmarshal(d.data)
 				if err != nil {
 					return stderr.Wrap(err)
 				}
 				m, ok := msg.(*message.StunMessage)
 				if !ok {
 					logrus.WithContext(ctx).WithFields(logrus.Fields{
-						"raddr": item.addr.String(),
+						"raddr": d.addr.String(),
 						"laddr": s.localAddr,
 					}).Debugf("recved unknown data:%s", reflect.TypeOf(msg))
 					return nil
 				}
 				logrus.WithContext(ctx).WithFields(logrus.Fields{
-					"raddr": item.addr.String(),
+					"raddr": d.addr.String(),
 					"laddr": s.localAddr,
 				}).Debugf("recved data:%v", msg)
 				switch m.ClientType {
@@ -129,7 +129,7 @@ func (s *Server) Run(ctx context.Context) error {
 						return stderr.Wrap(err)
 					}
 
-					if err := s.dns.SetIpAddr(ctx, remoteIP, item.addr); err != nil {
+					if err := s.dns.SetIpAddr(ctx, remoteIP, d.addr); err != nil {
 						return stderr.Wrap(err)
 					}
 				case m.ClientType:
@@ -147,7 +147,7 @@ func (s *Server) Run(ctx context.Context) error {
 					}
 
 					if targetAddr == nil {
-						targetAddr, err = s.dns.GetPairAddr(ctx, item.addr)
+						targetAddr, err = s.dns.GetPairAddr(ctx, d.addr)
 					}
 					if err != nil {
 						return stderr.Wrap(err)
@@ -159,7 +159,7 @@ func (s *Server) Run(ctx context.Context) error {
 					// send to backend target
 					{
 						var msg = message.ConnMessage{
-							RemoteAddr: item.addr,
+							RemoteAddr: d.addr,
 						}
 						data, err := message.Marshal(msg)
 						if err != nil {
@@ -184,9 +184,9 @@ func (s *Server) Run(ctx context.Context) error {
 						if err != nil {
 							return stderr.Wrap(err)
 						}
-						n, err := conn.WriteToUDP(body, item.addr)
+						n, err := conn.WriteToUDP(body, d.addr)
 						logrus.WithContext(ctx).WithFields(logrus.Fields{
-							"raddr": item.addr,
+							"raddr": d.addr,
 						}).Debugf("send %d data:%v", n, msg)
 						if err != nil {
 							return stderr.Wrap(err)

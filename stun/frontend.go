@@ -101,7 +101,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 				return nil, nil, stderr.Wrap(err)
 			}
 		case d, ok := <-dataCh:
-			if !ok {
+			if !ok && d.data == nil {
 				return nil, nil, nil
 			}
 			msg, err := message.Unmarshal(d.data)

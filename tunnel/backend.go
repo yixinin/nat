@@ -7,6 +7,7 @@ import (
 	"nat/message"
 	"nat/stderr"
 	"net"
+	"reflect"
 	"runtime/debug"
 	"time"
 
@@ -110,8 +111,9 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 					data, _ := message.Marshal(msg)
 					t.proxy.WriteToUDP(data, raddr)
 				}
+			default:
+				logrus.Errorf("unknown msg:%s", reflect.TypeOf(msg))
 			}
-
 		}
 	}()
 
@@ -127,7 +129,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			data, _ := message.Marshal(msg)
 			t.proxy.WriteToUDP(data, t.raddr)
 		case data, ok := <-lpc:
-			if !ok {
+			if !ok && len(data) == 0 {
 				logrus.Debug("local lpc chan closed!")
 				return nil
 			}
@@ -143,7 +145,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 				}).Debugf("send proxy %d data", n)
 			}
 		case data, ok := <-rpc:
-			if !ok {
+			if !ok && len(data) == 0 {
 				logrus.Debug("local rpc chan closed!")
 				return nil
 			}

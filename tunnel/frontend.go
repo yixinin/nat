@@ -7,6 +7,7 @@ import (
 	"nat/message"
 	"nat/stderr"
 	"net"
+	"reflect"
 	"runtime/debug"
 	"time"
 
@@ -69,7 +70,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case conn, ok := <-connCh:
-			if !ok {
+			if !ok && conn == nil {
 				logrus.WithFields(logrus.Fields{
 					"laddr": t.localAddr,
 				}).Debug("accept chan closed!")
@@ -134,6 +135,9 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 			}).Debugf("recv proxy %d %s data", n, msg.Type())
 			switch msg := msg.(type) {
 			case *message.PacketMessage:
+				logrus.WithContext(ctx).WithFields(logrus.Fields{
+					"raddr": raddr.String(),
+				}).Debugf("sync proxy %d data to send list", n)
 				rpc <- msg.Data
 			case *message.HeartbeatMessage:
 				if !msg.NoRelay {
@@ -147,6 +151,8 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 					data, _ := message.Marshal(msg)
 					t.proxy.WriteToUDP(data, raddr)
 				}
+			default:
+				logrus.Errorf("unknown msg:%s", reflect.TypeOf(msg))
 			}
 		}
 	}()
@@ -169,7 +175,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 			data, _ := message.Marshal(msg)
 			t.proxy.WriteToUDP(data, t.raddr)
 		case data, ok := <-lpc:
-			if !ok {
+			if !ok && len(data) == 0 {
 				logrus.Debug("local lpc chan closed!")
 				return nil
 			}
@@ -185,7 +191,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 				}).Debugf("send proxy %d data", n)
 			}
 		case data, ok := <-rpc:
-			if !ok {
+			if !ok && len(data) == 0 {
 				logrus.Debug("local rpc chan closed!")
 				return nil
 			}

@@ -122,7 +122,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				return nil, nil, stderr.Wrap(err)
 			}
 		case d, ok := <-dataCh:
-			if !ok {
+			if !ok && d.data == nil {
 				return nil, nil, nil
 			}
 			msg, err := message.Unmarshal(d.data)
