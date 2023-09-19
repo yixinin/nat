@@ -17,7 +17,7 @@ const (
 	TypeConn      MessageType = 2
 	TypeHandShake MessageType = 3
 	TypeHeartbeat MessageType = 4
-	TypePacket    MessageType = 4
+	TypePacket    MessageType = 5
 )
 
 func (t MessageType) IsValid() bool {
