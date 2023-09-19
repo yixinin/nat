@@ -18,6 +18,7 @@ const (
 	TypeHandshake MessageType = 3
 	TypeHeartbeat MessageType = 4
 	TypePacket    MessageType = 5
+	TypeTunnel    MessageType = 6
 )
 
 func (t MessageType) String() string {
@@ -32,6 +33,8 @@ func (t MessageType) String() string {
 		return "heartbeat"
 	case TypePacket:
 		return "packet"
+	case TypeTunnel:
+		return "tunnel"
 	default:
 		return "unknown"
 	}
@@ -75,6 +78,8 @@ func Unmarshal(data []byte) (MessageUnmarshal, error) {
 		msg = &HeartbeatMessage{}
 	case TypePacket:
 		msg = &PacketMessage{}
+	case TypeTunnel:
+		msg = &TunnelMessage{}
 	default:
 		return nil, stderr.Wrap(fmt.Errorf("unknown msg type:%d", t))
 	}

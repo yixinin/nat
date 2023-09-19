@@ -7,49 +7,129 @@ import (
 	"nat/message"
 	"nat/stderr"
 	"net"
-	"reflect"
 	"runtime/debug"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
 type BackendTunnel struct {
+	*Proxy
 	localAddr string
-
-	proxy *net.UDPConn
-	raddr *net.UDPAddr
 }
 
-func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, proxy *net.UDPConn) *BackendTunnel {
+func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *BackendTunnel {
 	t := &BackendTunnel{
 		localAddr: localAddr,
-		raddr:     remoteAddr,
-		proxy:     proxy,
+		Proxy:     NewProxy(remoteAddr, conn),
 	}
 	return t
 }
 
 func (t *BackendTunnel) Run(ctx context.Context) error {
-	logrus.WithContext(ctx).WithFields(logrus.Fields{
+	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr":  t.localAddr,
 		"remoteAddr": t.raddr.String(),
-	}).Infof("start backend tunnel")
-	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
+	})
+	log.Infof("start backend tunnel")
+	defer log.Infof("backend tunnel exit.")
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	go func() {
+		err := t.RunProxy(ctx)
+		if err != nil {
+			log.Errorf("proxy error:%v", err)
+			cancel()
+		}
+	}()
+
+	chRw := sync.RWMutex{}
+	pkgChs := make(map[uint64]chan message.PacketMessage, 8)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-t.errCh:
+			log.Errorf("proxy recv error:%v", err)
+			if errors.Is(err, net.ErrClosed) {
+				return err
+			}
+		case msg, ok := <-t.msgCh:
+			if !ok && msg == nil {
+				logrus.Debug("proxy msg chan closed!")
+				return nil
+			}
+			switch msg := msg.(type) {
+			case *message.PacketMessage:
+				if msg == nil {
+					continue
+				}
+				chRw.RLock()
+				ch, ok := pkgChs[msg.Id]
+				chRw.RUnlock()
+				if ok && ch != nil {
+					ch <- *msg
+				}
+			case *message.TunnelMessage:
+				ch := make(chan message.PacketMessage, 10)
+				chRw.Lock()
+				pkgChs[msg.Id] = ch
+				chRw.Unlock()
+				go func(msg *message.TunnelMessage) {
+					err := t.handle(ctx, msg.Id, ch)
+					if err != nil {
+						log.Errorf("backend proxy handle %d error:%v", msg.Id, err)
+					}
+					chRw.Lock()
+					ch := pkgChs[msg.Id]
+					delete(pkgChs, msg.Id)
+					chRw.Unlock()
+					if ch != nil {
+						close(ch)
+					}
+				}(msg)
+			case *message.HeartbeatMessage:
+				if !msg.NoRelay {
+					msg.NoRelay = true
+					t.Proxy.SendMessage(msg)
+				}
+			case *message.HandShakeMessage:
+				if !msg.NoRelay {
+					msg.NoRelay = true
+					t.Proxy.SendMessage(msg)
+				}
+			default:
+				log.Errorf("unexpected recv %s msg", msg.Type())
+			}
+		}
+	}
+}
+
+func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan message.PacketMessage) error {
+	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"id":         id,
 		"localAddr":  t.localAddr,
 		"remoteAddr": t.raddr.String(),
-	}).Infof("backend tunnel exit.")
+	})
+	log.Infof("start backend tunnel handle")
+	defer log.Infof("backend tunnel hanle exit.")
+
 	conn, err := net.Dial("tcp", t.localAddr)
 	if err != nil {
-		return stderr.Wrap(err)
+		return err
 	}
 	defer conn.Close()
 
+	var lpc = make(chan []byte, 1)
 	var errCh = make(chan error, 1)
+	defer close(lpc)
 	defer close(errCh)
 
-	lpc := make(chan []byte, 1)
-	defer close(lpc)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -59,105 +139,50 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		var buf = make([]byte, message.BufferSize)
 		for {
 			n, err := conn.Read(buf)
-			if errors.Is(err, io.EOF) {
-				continue
-			}
 			if err != nil {
 				errCh <- err
 				return
 			}
-			logrus.WithContext(ctx).Debugf("recv local %d data", n)
+			log.Debugf("recv local %d data", n)
 			lpc <- buf[:n]
 		}
 	}()
 
-	rpc := make(chan []byte, 1)
-	defer close(rpc)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				logrus.WithContext(ctx).WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
-			}
-		}()
-		var buf = make([]byte, message.BufferSize)
-		for {
-			n, raddr, err := t.proxy.ReadFromUDP(buf)
-			if err != nil {
-				logrus.WithContext(ctx).Errorf("recv with error:%v", err)
-				errCh <- err
-				return
-			}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	exit := time.NewTimer(time.Second)
+	exit.Stop()
 
-			msg, err := message.Unmarshal(buf[:n])
-			if err != nil {
-				errCh <- err
-				return
-			}
-
-			switch msg := msg.(type) {
-			case *message.PacketMessage:
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
-					"raddr": raddr.String(),
-				}).Debugf("sync recv proxy %d %s data", len(msg.Data), msg.Type())
-				rpc <- msg.Data
-			case *message.HeartbeatMessage:
-				if !msg.NoRelay {
-					msg.NoRelay = true
-					data, _ := message.Marshal(msg)
-					t.proxy.WriteToUDP(data, raddr)
-				}
-			case *message.HandShakeMessage:
-				if !msg.NoRelay {
-					msg.NoRelay = true
-					data, _ := message.Marshal(msg)
-					t.proxy.WriteToUDP(data, raddr)
-				}
-			default:
-				logrus.Errorf("unknown msg:%s", reflect.TypeOf(msg))
-			}
-		}
-	}()
-
-	tk := time.NewTicker(10 * time.Second)
-	defer tk.Stop()
-
+	seq := atomic.Uint64{}
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-tk.C:
-			msg := message.HeartbeatMessage{}
-			data, _ := message.Marshal(msg)
-			t.proxy.WriteToUDP(data, t.raddr)
-		case data, ok := <-lpc:
-			if !ok && len(data) == 0 {
-				logrus.Debug("local lpc chan closed!")
-				return nil
-			}
-			msgs := message.NewPacketMessage(data)
-			for _, msg := range msgs {
-				data, _ = message.Marshal(msg)
-				n, err := t.proxy.WriteToUDP(data, t.raddr)
-				if err != nil {
-					return stderr.Wrap(err)
-				}
-				logrus.WithContext(ctx).WithFields(logrus.Fields{
-					"raddr": t.raddr.String(),
-				}).Debugf("send proxy %d data", n)
-			}
-		case data, ok := <-rpc:
-			if !ok && len(data) == 0 {
-				logrus.Debug("local rpc chan closed!")
-				return nil
-			}
-			logrus.WithContext(ctx).Debugf("ready send local %d data", len(data))
-			n, err := conn.Write(data)
-			if err != nil {
-				return stderr.Wrap(err)
-			}
-			logrus.WithContext(ctx).Debugf("send local %d data", n)
+		case <-exit.C:
+			return nil
 		case err := <-errCh:
+			if errors.Is(err, io.EOF) {
+				log.Debug("disconnected wait flush data")
+				exit.Reset(1 * time.Second)
+				continue
+			}
 			return stderr.Wrap(err)
+		case msg, ok := <-msgChan:
+			if !ok && msg.Id == 0 {
+				log.Debug("proxy chan closed!")
+				return nil
+			}
+			n, err := conn.Write(msg.Data)
+			if err != nil {
+				return err
+			}
+			log.Debugf("write local data:%d", n)
+		case data := <-lpc:
+			msgs := message.NewPacketMessage(id, seq.Load(), data)
+			for i := range msgs {
+				t.Proxy.SendMessage(&msgs[i])
+				seq.Add(1)
+			}
 		}
 	}
 }

@@ -3,23 +3,22 @@ package message
 import (
 	"encoding/binary"
 	"nat/stderr"
-	"sync/atomic"
 )
 
 const BufferSize = 1400
 const PacketSize = BufferSize - 1 - 8
 
-var id = atomic.Uint64{}
-
 type PacketMessage struct {
 	Id   uint64 `json:"id"`
+	Seq  uint64
 	Data []byte `json:"data"`
 }
 
-func NewPacketMessage(data []byte) []PacketMessage {
+func NewPacketMessage(id, seq uint64, data []byte) []PacketMessage {
 	if len(data) <= PacketSize {
 		return []PacketMessage{{
-			Id:   id.Add(1),
+			Id:   id,
+			Seq:  seq,
 			Data: data,
 		}}
 	}
@@ -30,9 +29,11 @@ func NewPacketMessage(data []byte) []PacketMessage {
 			end = len(data)
 		}
 		ps = append(ps, PacketMessage{
-			Id:   id.Add(1),
+			Id:   id,
+			Seq:  seq,
 			Data: data[i:end],
 		})
+		seq++
 	}
 	return ps
 }
@@ -42,11 +43,12 @@ func (PacketMessage) Type() MessageType {
 }
 
 func (m *PacketMessage) SetData(data []byte) (int, error) {
-	if len(data) < 8 {
-		return 0, stderr.New(CodeInvalid, "data size < 8")
+	if len(data) < 16 {
+		return 0, stderr.New(CodeInvalid, "data size < 16")
 	}
 	m.Id = binary.BigEndian.Uint64(data[:8])
-	m.Data = data[8:]
+	m.Seq = binary.BigEndian.Uint64(data[8:16])
+	m.Data = data[16:]
 	return len(data), nil
 }
 
@@ -64,8 +66,9 @@ func (m PacketMessage) GetHeader() ([]byte, error) {
 	return []byte{byte(TypePacket)}, nil
 }
 func (m PacketMessage) GetData() ([]byte, error) {
-	data := make([]byte, 8+len(m.Data))
+	data := make([]byte, 16+len(m.Data))
 	binary.BigEndian.PutUint64(data[:8], m.Id)
-	copy(data[8:], m.Data)
+	binary.BigEndian.PutUint64(data[8:16], m.Seq)
+	copy(data[16:], m.Data)
 	return data, nil
 }
