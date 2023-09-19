@@ -75,7 +75,37 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 	defer tk.Stop()
 
 	once := sync.Once{}
-	var buf = make([]byte, 1500)
+
+	var errCh = make(chan error, 1)
+	defer close(errCh)
+	var dataCh = make(chan RemoteData, 1)
+
+	go func() {
+		defer close(dataCh)
+		var buf = make([]byte, 1500)
+		for {
+			n, raddr, err := conn.ReadFromUDP(buf)
+			if os.IsTimeout(err) {
+				continue
+			}
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if n == 0 {
+				continue
+			}
+			logrus.WithContext(ctx).WithFields(logrus.Fields{
+				"raddr": raddr.String(),
+				"fqdn":  b.FQDN,
+			}).Debugf("recved %d data", n)
+			dataCh <- RemoteData{
+				addr: raddr,
+				data: buf[:n],
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -84,25 +114,16 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			if err := syncStun(); err != nil {
 				return nil, nil, err
 			}
-		default:
-			conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-			n, raddr, err := conn.ReadFromUDP(buf)
-			if os.IsTimeout(err) {
-				continue
+		case d, ok := <-dataCh:
+			if !ok {
+				return nil, nil, nil
 			}
-			if err != nil {
-				return nil, nil, err
-			}
-			if n == 0 {
-				continue
-			}
-
-			msg, err := message.Unmarshal(buf[:n])
+			msg, err := message.Unmarshal(d.data)
 			if err != nil {
 				return nil, nil, err
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
-				"raddr": raddr.String(),
+				"raddr": d.addr.String(),
 				"fqdn":  b.FQDN,
 			}).Debugf("recved data:%v", msg)
 			switch msg := msg.(type) {
@@ -121,7 +142,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			case *message.HandShakeMessage:
 				// received handshake, success.
 				cancel()
-				return conn, raddr, nil
+				return conn, d.addr, nil
 			}
 		}
 	}
@@ -199,7 +220,36 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 	tk := time.NewTicker(3 * time.Second)
 	defer tk.Stop()
 
-	var buf = make([]byte, 1500)
+	var errCh = make(chan error, 1)
+	defer close(errCh)
+	var dataCh = make(chan RemoteData, 1)
+
+	go func() {
+		defer close(dataCh)
+		var buf = make([]byte, 1500)
+		for {
+			n, raddr, err := conn.ReadFromUDP(buf)
+			if os.IsTimeout(err) {
+				continue
+			}
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if n == 0 {
+				continue
+			}
+			logrus.WithContext(ctx).WithFields(logrus.Fields{
+				"raddr": raddr.String(),
+				"fqdn":  fqdn,
+			}).Debugf("recved %d data", n)
+			dataCh <- RemoteData{
+				addr: raddr,
+				data: buf[:n],
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -208,25 +258,16 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			if err := dialStun(); err != nil {
 				return nil, nil, err
 			}
-		default:
-			conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-			n, raddr, err := conn.ReadFromUDP(buf)
-			if os.IsTimeout(err) {
-				continue
+		case d, ok := <-dataCh:
+			if !ok {
+				return nil, nil, nil
 			}
-			if err != nil {
-				return nil, nil, err
-			}
-			if n == 0 {
-				continue
-			}
-
-			msg, err := message.Unmarshal(buf[:n])
+			msg, err := message.Unmarshal(d.data)
 			if err != nil {
 				return nil, nil, err
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
-				"raddr": raddr.String(),
+				"raddr": d.addr.String(),
 				"fqdn":  fqdn,
 			}).Debugf("recved data:%v", msg)
 			switch msg := msg.(type) {
@@ -241,7 +282,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			case *message.HandShakeMessage:
 				// received handshake, success.
 				cancel()
-				return conn, raddr, nil
+				return conn, d.addr, nil
 			}
 		}
 	}
