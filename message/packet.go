@@ -6,7 +6,7 @@ import (
 )
 
 const BufferSize = 1400
-const PacketSize = BufferSize - 1
+const PacketSize = BufferSize - 1 - 8
 
 var id = atomic.Uint64{}
 
