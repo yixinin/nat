@@ -58,6 +58,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 				errCh <- err
 				return
 			}
+			logrus.WithContext(ctx).Debugf("recv %d local data", n)
 			lpc <- buf[:n]
 		}
 	}()
@@ -72,11 +73,14 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		}()
 		var buf = make([]byte, 1500)
 		for {
-			n, err := t.proxy.Read(buf)
+			n, raddr, err := t.proxy.ReadFromUDP(buf)
 			if err != nil {
 				errCh <- err
 				return
 			}
+			logrus.WithContext(ctx).WithFields(logrus.Fields{
+				"raddr": raddr.String(),
+			}).Debugf("recv %d data", n)
 			rpc <- buf[:n]
 		}
 	}()
@@ -89,18 +93,22 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			_, err := t.proxy.WriteToUDP(data, t.raddr)
+			n, err := t.proxy.WriteToUDP(data, t.raddr)
 			if err != nil {
 				return err
 			}
+			logrus.WithContext(ctx).WithFields(logrus.Fields{
+				"raddr": t.raddr.String(),
+			}).Debugf("send %d data", n)
 		case data, ok := <-rpc:
 			if !ok {
 				return nil
 			}
-			_, err := conn.Write(data)
+			n, err := conn.Write(data)
 			if err != nil {
 				return err
 			}
+			logrus.WithContext(ctx).Debugf("send %d local data", n)
 		case err := <-errCh:
 			return err
 		}

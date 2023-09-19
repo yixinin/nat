@@ -62,7 +62,10 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 		if err != nil {
 			return err
 		}
-		_, err = conn.WriteToUDP(data, b.stunAddr)
+		n, err := conn.WriteToUDP(data, b.stunAddr)
+		logrus.WithContext(ctx).WithFields(logrus.Fields{
+			"raddr": b.stunAddr.String(),
+		}).Debugf("send %d data:%v", n, msg)
 		return err
 	}
 
@@ -140,12 +143,16 @@ func handshake(ctx context.Context, conn *net.UDPConn, raddr *net.UDPAddr) error
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-tk.C:
-			hsMsg := message.HandShakeMessage{}
-			data, err := message.Marshal(hsMsg)
+			msg := message.HandShakeMessage{}
+			data, err := message.Marshal(msg)
 			if err != nil {
 				return err
 			}
-			_, err = conn.WriteToUDP(data, raddr)
+
+			n, err := conn.WriteToUDP(data, raddr)
+			logrus.WithContext(ctx).WithFields(logrus.Fields{
+				"raddr": raddr.String(),
+			}).Debugf("send %d data:%v", n, msg)
 			if err != nil {
 				return err
 			}
@@ -183,7 +190,10 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 		if err != nil {
 			return err
 		}
-		_, err = conn.WriteToUDP(data, f.stunAddr)
+		n, err := conn.WriteToUDP(data, f.stunAddr)
+		logrus.WithContext(ctx).WithFields(logrus.Fields{
+			"raddr": f.stunAddr.String(),
+		}).Debugf("send %d data:%v", n, msg)
 		return err
 	}
 
