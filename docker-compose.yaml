@@ -1,0 +1,9 @@
+version: "3"
+services:
+  nat:
+    build: .
+    container_name: nat
+    restart: always
+    network_mode: host
+    volumes:
+      - /home/orangepi/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/quic.iakl.top:/app/ca
