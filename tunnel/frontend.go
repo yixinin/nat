@@ -100,7 +100,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			pkgChs[msg.Id] = ch
 			chRw.Unlock()
 			go func(msg message.TunnelMessage) {
-				if err := t.handle(ctx, sessid.Add(1), conn, ch); err != nil {
+				if err := t.handle(ctx, sessid.Load(), conn, ch); err != nil {
 					logrus.WithContext(ctx).WithField("id", sessid.Load()).Errorf("handle proxy error:%v", err)
 				}
 
@@ -120,6 +120,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			switch msg := msg.(type) {
 			case *message.PacketMessage:
 				if msg == nil {
+					log.Debug("msg is nil")
 					continue
 				}
 				chRw.RLock()
@@ -127,6 +128,8 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 				chRw.RUnlock()
 				if ok && ch != nil {
 					ch <- *msg
+				} else {
+					log.Debug("channel is nil ", msg.Id, ok, ch == nil)
 				}
 			}
 		}

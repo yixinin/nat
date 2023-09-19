@@ -67,6 +67,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			switch msg := msg.(type) {
 			case *message.PacketMessage:
 				if msg == nil {
+					log.Debugf("msg is nil")
 					continue
 				}
 				chRw.RLock()
@@ -74,6 +75,8 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 				chRw.RUnlock()
 				if ok && ch != nil {
 					ch <- *msg
+				} else {
+					log.Debug("channel is nil ", msg.Id, ok, ch == nil)
 				}
 			case *message.TunnelMessage:
 				ch := make(chan message.PacketMessage, 10)

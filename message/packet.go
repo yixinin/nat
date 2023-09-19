@@ -6,7 +6,7 @@ import (
 )
 
 const BufferSize = 1400
-const PacketSize = BufferSize - 1 - 8
+const PacketSize = BufferSize - 1 - 16
 
 type PacketMessage struct {
 	Id   uint64 `json:"id"`

@@ -68,6 +68,7 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 			p.errCh <- err
 			continue
 		}
+		log.Debugf("recv proxy msg:%s size:%d", msg.Type(), n)
 		p.msgCh <- msg
 	}
 }
