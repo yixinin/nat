@@ -49,6 +49,11 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 
 	buf := make([]byte, message.BufferSize)
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		n, raddr, err := p.rconn.ReadFromUDP(buf)
 		if err != nil {
 			p.errCh <- err

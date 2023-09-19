@@ -61,23 +61,23 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			}
 		case msg, ok := <-t.msgCh:
 			if !ok && msg == nil {
-				logrus.Debug("proxy msg chan closed!")
+				logrus.Info("proxy msg chan closed!")
 				return nil
 			}
 			switch msg := msg.(type) {
 			case *message.PacketMessage:
 				if msg == nil {
-					log.Debugf("msg is nil")
+					log.Info("msg is nil")
 					continue
 				}
 				chRw.RLock()
 				ch, ok := pkgChs[msg.Id]
-				chRw.RUnlock()
 				if ok && ch != nil {
 					ch <- *msg
 				} else {
-					log.Debug("channel is nil ", msg.Id, ok, ch == nil)
+					log.Info("channel is nil ", msg.Id, ok, ch == nil)
 				}
+				chRw.RUnlock()
 			case *message.TunnelMessage:
 				ch := make(chan message.PacketMessage, 10)
 				chRw.Lock()
@@ -89,12 +89,13 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 						log.Errorf("backend proxy handle %d error:%v", msg.Id, err)
 					}
 					chRw.Lock()
-					ch := pkgChs[msg.Id]
-					delete(pkgChs, msg.Id)
-					chRw.Unlock()
-					if ch != nil {
+					ch, ok := pkgChs[msg.Id]
+					if ok && ch != nil {
 						close(ch)
 					}
+					delete(pkgChs, msg.Id)
+					chRw.Unlock()
+
 				}(msg)
 			case *message.HeartbeatMessage:
 				if !msg.NoRelay {
@@ -141,6 +142,11 @@ func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan mess
 		}()
 		var buf = make([]byte, message.BufferSize)
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			n, err := conn.Read(buf)
 			if err != nil {
 				errCh <- err
@@ -165,14 +171,14 @@ func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan mess
 			return nil
 		case err := <-errCh:
 			if errors.Is(err, io.EOF) {
-				log.Debug("disconnected wait flush data")
-				exit.Reset(1 * time.Second)
+				log.Info("disconnected wait flush data")
+				// exit.Reset(10 * time.Second)
 				continue
 			}
 			return stderr.Wrap(err)
 		case msg, ok := <-msgChan:
 			if !ok && msg.Id == 0 {
-				log.Debug("proxy chan closed!")
+				log.Info("proxy chan closed!")
 				return nil
 			}
 			n, err := conn.Write(msg.Data)

@@ -16,6 +16,8 @@ var (
 	stunAddr   string
 	localAddr  string
 	fqdn       string
+
+	debug bool
 )
 
 func main() {
@@ -26,9 +28,14 @@ func main() {
 	flag.StringVar(&stunAddr, "stun", "114.115.218.1:2023", "stun server addr")
 	flag.StringVar(&localAddr, "laddr", "", "listen addr")
 	flag.StringVar(&fqdn, "fqdn", "", "fqdn")
+
+	flag.BoolVar(&debug, "debug", false, "debug mode")
 	flag.Parse()
 
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.InfoLevel)
+	if debug {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 	logrus.SetFormatter(&logrus.TextFormatter{})
 
 	var ctx, cancel = context.WithCancel(context.Background())

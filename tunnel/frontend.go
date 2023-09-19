@@ -62,11 +62,18 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			close(connCh)
 		}()
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			conn, err := lis.Accept()
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"laddr": t.localAddr,
 				}).Errorf("accept exit with error:%v", err)
+				cancel()
 				return
 			}
 			connCh <- conn
@@ -105,32 +112,33 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 				}
 
 				chRw.Lock()
-				ch := pkgChs[msg.Id]
-				delete(pkgChs, msg.Id)
-				chRw.Unlock()
-				if ch != nil {
+				ch, ok := pkgChs[msg.Id]
+				if ok && ch != nil {
 					close(ch)
 				}
+				delete(pkgChs, msg.Id)
+				chRw.Unlock()
+
 			}(msg)
 		case msg, ok := <-t.msgCh:
 			if !ok && msg == nil {
-				log.Debug("accept chan closed!")
+				log.Info("accept chan closed!")
 				return nil
 			}
 			switch msg := msg.(type) {
 			case *message.PacketMessage:
 				if msg == nil {
-					log.Debug("msg is nil")
+					log.Info("msg is nil")
 					continue
 				}
 				chRw.RLock()
 				ch, ok := pkgChs[msg.Id]
-				chRw.RUnlock()
 				if ok && ch != nil {
 					ch <- *msg
 				} else {
-					log.Debug("channel is nil ", msg.Id, ok, ch == nil)
+					log.Info("channel is nil ", msg.Id, ok, ch == nil)
 				}
+				chRw.RUnlock()
 			}
 		}
 	}
@@ -141,8 +149,8 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn, m
 		"id":    id,
 		"laddr": t.localAddr,
 	})
-	log.Debugf("start handle:%d", id)
-	defer log.Debugf("handle:%d exit.", id)
+	log.Debug("start handle")
+	defer log.Debug("handle exit.")
 	var errCh = make(chan error, 1)
 	defer close(errCh)
 
@@ -158,6 +166,11 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn, m
 		}()
 		var buf = make([]byte, message.BufferSize)
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			n, err := conn.Read(buf)
 			if err != nil {
 				errCh <- err
@@ -183,14 +196,12 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn, m
 			return nil
 		case err := <-errCh:
 			if errors.Is(err, io.EOF) {
-				log.Debug("disconnected wait flush data")
-				exit.Reset(1 * time.Second)
 				continue
 			}
 			return stderr.Wrap(err)
 		case msg, ok := <-msgCh:
 			if !ok && msg.Id == 0 {
-				log.Debug("proxy chan closed!")
+				log.Info("proxy chan closed!")
 				return nil
 			}
 			n, err := conn.Write(msg.Data)
@@ -201,7 +212,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn, m
 
 		case data, ok := <-lpc:
 			if !ok && len(data) == 0 {
-				log.Debug("local lpc chan closed!")
+				log.Info("local lpc chan closed!")
 				return nil
 			}
 			msgs := message.NewPacketMessage(id, seq.Load(), data)
