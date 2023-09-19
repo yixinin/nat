@@ -5,6 +5,7 @@ import (
 	"nat/stderr"
 	"nat/stun"
 	"nat/tunnel"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 )
@@ -33,23 +34,39 @@ func (b *Backend) Run(ctx context.Context) error {
 	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"localAddr": b.localAddr,
 	}).Infof("backend server exit.")
-	go b.accept(ctx)
+
+	count := atomic.Int32{}
+
+	go func() {
+		count.Add(1)
+		b.accept(ctx)
+		count.Add(-1)
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-b.stun.NewAccept():
 			logrus.Debugf("accept new conn...")
-			go b.accept(ctx)
+			if count.Load() >= 2 {
+				continue
+			}
+			go func() {
+				count.Add(1)
+				b.accept(ctx)
+				count.Add(-1)
+			}()
 		}
 	}
 }
 
 func (b *Backend) accept(ctx context.Context) {
+	defer func() {
+		b.stun.NewAccept() <- struct{}{}
+	}()
 	conn, raddr, err := b.stun.Accept(ctx)
 	if err != nil {
 		logrus.WithContext(ctx).Errorf("accept error:%v", err)
-		b.stun.NewAccept() <- struct{}{}
 		return
 	}
 
