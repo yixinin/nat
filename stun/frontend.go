@@ -119,7 +119,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 				err := handshake(ctx, conn, msg.RemoteAddr)
 				if os.IsTimeout(err) {
 					logrus.WithContext(ctx).Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 3)
-					tk.Reset(3 & time.Second)
+					tk.Reset(3 * time.Second)
 					continue
 				}
 				if err != nil {

@@ -140,7 +140,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				err := handshake(ctx, conn, msg.RemoteAddr)
 				if os.IsTimeout(err) {
 					logrus.WithContext(ctx).Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 10)
-					tk.Reset(10 & time.Second)
+					tk.Reset(10 * time.Second)
 					continue
 				}
 				if err != nil {
