@@ -82,6 +82,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		for {
 			n, raddr, err := t.proxy.ReadFromUDP(buf)
 			if err != nil {
+				logrus.WithContext(ctx).Errorf("recv with error:%v", err)
 				errCh <- err
 				return
 			}
