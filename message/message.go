@@ -3,6 +3,7 @@ package message
 import (
 	"encoding/json"
 	"errors"
+	"nat/stderr"
 )
 
 var ErrorInvalidMessage = errors.New("invalid message")
@@ -39,7 +40,7 @@ type MessageMarshal interface {
 
 func Unmarshal(data []byte) (any, error) {
 	if len(data) == 0 {
-		return nil, ErrorInvalidMessage
+		return nil, stderr.Wrap(ErrorInvalidMessage)
 	}
 	var msg MessageUnmarshal
 	switch MessageType(data[0]) {
@@ -50,12 +51,12 @@ func Unmarshal(data []byte) (any, error) {
 	case TypeHandShake:
 		msg = &HandShakeMessage{}
 	default:
-		return nil, ErrorInvalidMessage
+		return nil, stderr.Wrap(ErrorInvalidMessage)
 	}
 
 	n, err := msg.SetHeader(data)
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	err = json.Unmarshal(data[n:], msg)
 	return msg, err
@@ -64,11 +65,11 @@ func Unmarshal(data []byte) (any, error) {
 func Marshal(msg MessageMarshal) ([]byte, error) {
 	var header, err = msg.GetHeader()
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	var data = make([]byte, len(body)+len(header))
 	copy(data, header)

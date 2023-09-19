@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"nat/stderr"
 	"nat/stun"
 	"nat/tunnel"
 	"time"
@@ -42,7 +43,7 @@ func (f *Frontend) Run(ctx context.Context) error {
 	defer cancel()
 	conn, raddr, err := f.stun.Dial(dctx, f.fqdn)
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
 	t := tunnel.NewFrontendTunnel(f.localAddr, raddr, conn)
 

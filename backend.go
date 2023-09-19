@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"nat/stderr"
 	"nat/stun"
 	"nat/tunnel"
 
@@ -16,7 +17,7 @@ type Backend struct {
 func NewBackend(fqdn, stunAddr string) (*Backend, error) {
 	stun, err := stun.NewBackend(fqdn, stunAddr)
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	return &Backend{
 		localAddr: localAddr,

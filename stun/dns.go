@@ -3,6 +3,7 @@ package stun
 import (
 	"context"
 	"fmt"
+	"nat/stderr"
 	"nat/storage"
 	"nat/storage/mem"
 	"net"
@@ -35,7 +36,7 @@ func (d *Dns) GetIP(ctx context.Context, fqdn string) (string, error) {
 		return "", nil
 	}
 	if err != nil {
-		return "", err
+		return "", stderr.Wrap(err)
 	}
 	ip, _ := val.(string)
 	return ip, nil
@@ -50,7 +51,7 @@ func (d *Dns) GetIPAddr(ctx context.Context, ip string) (*net.UDPAddr, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	addr, ok := val.(*net.UDPAddr)
 	if addr == nil || !ok {
@@ -70,7 +71,7 @@ func (d *Dns) GetPairAddr(ctx context.Context, key *net.UDPAddr) (*net.UDPAddr, 
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	addr, _ := val.(*net.UDPAddr)
 	return addr, nil

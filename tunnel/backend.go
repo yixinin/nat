@@ -3,6 +3,7 @@ package tunnel
 import (
 	"context"
 	"nat/message"
+	"nat/stderr"
 	"net"
 	"runtime/debug"
 	"time"
@@ -38,7 +39,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	}).Infof("backend tunnel exit.")
 	conn, err := net.Dial("tcp", t.localAddr)
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
 	defer conn.Close()
 
@@ -122,7 +123,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			data, _ = message.Marshal(msg)
 			n, err := t.proxy.WriteToUDP(data, t.raddr)
 			if err != nil {
-				return err
+				return stderr.Wrap(err)
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
 				"raddr": t.raddr.String(),
@@ -134,11 +135,11 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			}
 			n, err := conn.Write(data)
 			if err != nil {
-				return err
+				return stderr.Wrap(err)
 			}
 			logrus.WithContext(ctx).Debugf("send %d local data", n)
 		case err := <-errCh:
-			return err
+			return stderr.Wrap(err)
 		}
 	}
 }

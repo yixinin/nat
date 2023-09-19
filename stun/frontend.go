@@ -3,6 +3,7 @@ package stun
 import (
 	"context"
 	"nat/message"
+	"nat/stderr"
 	"net"
 	"os"
 	"runtime/debug"
@@ -18,7 +19,7 @@ type Frontend struct {
 func NewFrontend(stunAddr string) (*Frontend, error) {
 	addr, err := net.ResolveUDPAddr("udp", stunAddr)
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	return &Frontend{stunAddr: addr}, nil
 }
@@ -29,24 +30,24 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 
 	conn, err := net.ListenUDP("udp", nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, stderr.Wrap(err)
 	}
 
 	var dialStun = func() error {
 		msg := message.NewStunMessage(message.Frontend, fqdn)
 		data, err := message.Marshal(msg)
 		if err != nil {
-			return err
+			return stderr.Wrap(err)
 		}
 		n, err := conn.WriteToUDP(data, f.stunAddr)
 		logrus.WithContext(ctx).WithFields(logrus.Fields{
 			"raddr": f.stunAddr.String(),
 		}).Debugf("send %d data:%v", n, msg)
-		return err
+		return stderr.Wrap(err)
 	}
 
 	if err := dialStun(); err != nil {
-		return nil, nil, err
+		return nil, nil, stderr.Wrap(err)
 	}
 
 	tk := time.NewTicker(3 * time.Second)
@@ -94,10 +95,10 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, nil, err
+			return nil, nil, stderr.Wrap(err)
 		case <-tk.C:
 			if err := dialStun(); err != nil {
-				return nil, nil, err
+				return nil, nil, stderr.Wrap(err)
 			}
 		case d, ok := <-dataCh:
 			if !ok {
@@ -105,7 +106,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			}
 			msg, err := message.Unmarshal(d.data)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, stderr.Wrap(err)
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
 				"raddr": d.addr.String(),
@@ -124,7 +125,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 				}
 				if err != nil {
 					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
-					return nil, nil, err
+					return nil, nil, stderr.Wrap(err)
 				}
 			case *message.HandShakeMessage:
 				// received handshake, success.

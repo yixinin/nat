@@ -3,6 +3,7 @@ package stun
 import (
 	"context"
 	"nat/message"
+	"nat/stderr"
 	"net"
 	"os"
 	"runtime/debug"
@@ -21,7 +22,7 @@ type Backend struct {
 func NewBackend(fqdn, stunAddr string) (*Backend, error) {
 	addr, err := net.ResolveUDPAddr("udp", stunAddr)
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	return &Backend{
 		FQDN:     fqdn,
@@ -50,24 +51,24 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 
 	conn, err := net.ListenUDP("udp", nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, stderr.Wrap(err)
 	}
 
 	var syncStun = func() error {
 		msg := message.NewStunMessage(message.Backend, b.FQDN)
 		data, err := message.Marshal(msg)
 		if err != nil {
-			return err
+			return stderr.Wrap(err)
 		}
 		n, err := conn.WriteToUDP(data, b.stunAddr)
 		logrus.WithContext(ctx).WithFields(logrus.Fields{
 			"raddr": b.stunAddr.String(),
 		}).Debugf("send %d data:%v", n, msg)
-		return err
+		return stderr.Wrap(err)
 	}
 
 	if err := syncStun(); err != nil {
-		return nil, nil, err
+		return nil, nil, stderr.Wrap(err)
 	}
 
 	var tk = time.NewTicker(10 * time.Second)
@@ -118,7 +119,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			return nil, nil, ctx.Err()
 		case <-tk.C:
 			if err := syncStun(); err != nil {
-				return nil, nil, err
+				return nil, nil, stderr.Wrap(err)
 			}
 		case d, ok := <-dataCh:
 			if !ok {
@@ -126,7 +127,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			}
 			msg, err := message.Unmarshal(d.data)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, stderr.Wrap(err)
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
 				"raddr": d.addr.String(),
@@ -145,7 +146,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				}
 				if err != nil {
 					logrus.WithContext(ctx).Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
-					return nil, nil, err
+					return nil, nil, stderr.Wrap(err)
 				}
 				if err == nil {
 					logrus.Debugf("accept new ...")

@@ -3,6 +3,7 @@ package stun
 import (
 	"context"
 	"nat/message"
+	"nat/stderr"
 	"net"
 	"os"
 	"reflect"
@@ -23,7 +24,7 @@ func NewServer(localAddr string) (*Server, error) {
 	}
 	addr, err := net.ResolveUDPAddr("udp", localAddr)
 	if err != nil {
-		return nil, err
+		return nil, stderr.Wrap(err)
 	}
 	s.localAddr = addr
 	return s, nil
@@ -44,7 +45,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	conn, err := net.ListenUDP("udp", s.localAddr)
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
 
 	var errCh = make(chan error, 1)
@@ -98,7 +99,7 @@ func (s *Server) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case err := <-errCh:
-			return err
+			return stderr.Wrap(err)
 		case item, ok := <-dataCh:
 			if !ok {
 				logrus.WithContext(ctx).Debug("data ch closed!")
@@ -108,7 +109,7 @@ func (s *Server) Run(ctx context.Context) error {
 				var remoteIP = item.addr.IP.String()
 				msg, err := message.Unmarshal(item.data)
 				if err != nil {
-					return err
+					return stderr.Wrap(err)
 				}
 				m, ok := msg.(*message.StunMessage)
 				if !ok {
@@ -125,16 +126,16 @@ func (s *Server) Run(ctx context.Context) error {
 				switch m.ClientType {
 				case message.Backend:
 					if err := s.dns.SetIP(ctx, m.FQDN, remoteIP); err != nil {
-						return err
+						return stderr.Wrap(err)
 					}
 
 					if err := s.dns.SetIpAddr(ctx, remoteIP, item.addr); err != nil {
-						return err
+						return stderr.Wrap(err)
 					}
 				case m.ClientType:
 					targetIP, err := s.dns.GetIP(ctx, m.FQDN)
 					if err != nil {
-						return err
+						return stderr.Wrap(err)
 					}
 					if targetIP == "" {
 						return nil
@@ -142,14 +143,14 @@ func (s *Server) Run(ctx context.Context) error {
 
 					targetAddr, err := s.dns.GetIPAddr(ctx, targetIP)
 					if err != nil {
-						return err
+						return stderr.Wrap(err)
 					}
 
 					if targetAddr == nil {
 						targetAddr, err = s.dns.GetPairAddr(ctx, item.addr)
 					}
 					if err != nil {
-						return err
+						return stderr.Wrap(err)
 					}
 					if targetAddr == nil {
 						return nil
@@ -162,7 +163,7 @@ func (s *Server) Run(ctx context.Context) error {
 						}
 						data, err := message.Marshal(msg)
 						if err != nil {
-							return err
+							return stderr.Wrap(err)
 						}
 
 						n, err := conn.WriteToUDP(data, targetAddr)
@@ -170,7 +171,7 @@ func (s *Server) Run(ctx context.Context) error {
 							"raddr": targetAddr,
 						}).Debugf("send %d data:%v", n, msg)
 						if err != nil {
-							return err
+							return stderr.Wrap(err)
 						}
 					}
 
@@ -181,14 +182,14 @@ func (s *Server) Run(ctx context.Context) error {
 						}
 						body, err := message.Marshal(msg)
 						if err != nil {
-							return err
+							return stderr.Wrap(err)
 						}
 						n, err := conn.WriteToUDP(body, item.addr)
 						logrus.WithContext(ctx).WithFields(logrus.Fields{
 							"raddr": item.addr,
 						}).Debugf("send %d data:%v", n, msg)
 						if err != nil {
-							return err
+							return stderr.Wrap(err)
 						}
 					}
 				}

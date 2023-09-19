@@ -1,5 +1,7 @@
 package message
 
+import "nat/stderr"
+
 type ClientType byte
 
 const (
@@ -42,7 +44,7 @@ func (m *StunMessage) SetHeader(data []byte) (int, error) {
 
 func (m StunMessage) GetHeader() ([]byte, error) {
 	if !m.ClientType.IsValid() {
-		return nil, ErrorInvalidMessage
+		return nil, stderr.Wrap(ErrorInvalidMessage)
 	}
 	return []byte{byte(TypeStun), byte(m.ClientType)}, nil
 }

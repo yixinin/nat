@@ -3,6 +3,7 @@ package tunnel
 import (
 	"context"
 	"nat/message"
+	"nat/stderr"
 	"net"
 	"runtime/debug"
 	"time"
@@ -38,7 +39,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 
 	lis, err := net.Listen("tcp", t.localAddr)
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
 	defer lis.Close()
 
@@ -50,14 +51,16 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			}
 			close(connCh)
 		}()
-		conn, err := lis.Accept()
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"laddr": t.localAddr,
-			}).Errorf("accept exit with error:%v", err)
-			return
+		for {
+			conn, err := lis.Accept()
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"laddr": t.localAddr,
+				}).Errorf("accept exit with error:%v", err)
+				return
+			}
+			connCh <- conn
 		}
-		connCh <- conn
 	}()
 
 	for {
@@ -160,7 +163,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 			data, _ = message.Marshal(msg)
 			n, err := t.proxy.WriteToUDP(data, t.raddr)
 			if err != nil {
-				return err
+				return stderr.Wrap(err)
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
 				"raddr": t.raddr.String(),
@@ -172,11 +175,11 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 			}
 			n, err := conn.Write(data)
 			if err != nil {
-				return err
+				return stderr.Wrap(err)
 			}
 			logrus.WithContext(ctx).Debugf("send %d local data", n)
 		case err := <-errCh:
-			return err
+			return stderr.Wrap(err)
 		}
 	}
 }
