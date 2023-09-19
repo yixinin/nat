@@ -98,7 +98,11 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 					t.proxy.WriteToUDP(data, raddr)
 				}
 			case *message.HandShakeMessage:
-				t.proxy.WriteToUDP(buf[:n], raddr)
+				if !msg.NoRelay {
+					msg.NoRelay = true
+					data, _ := message.Marshal(msg)
+					t.proxy.WriteToUDP(data, raddr)
+				}
 			}
 
 		}

@@ -1,7 +1,7 @@
 package message
 
 type HeartbeatMessage struct {
-	NoRelay bool
+	NoRelay bool `json:"-"`
 }
 
 func (m *HeartbeatMessage) SetHeader(data []byte) (int, error) {

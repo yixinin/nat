@@ -1,6 +1,7 @@
 package message
 
 type HandShakeMessage struct {
+	NoRelay bool `json:"-"`
 }
 
 func (m *HandShakeMessage) SetHeader(data []byte) (int, error) {
@@ -10,9 +11,14 @@ func (m *HandShakeMessage) SetHeader(data []byte) (int, error) {
 	if MessageType(data[0]) != TypeHandShake {
 		return 0, ErrorInvalidMessage
 	}
-	return 1, nil
+	m.NoRelay = data[1] == 1
+	return 2, nil
 }
 
 func (m HandShakeMessage) GetHeader() ([]byte, error) {
-	return []byte{byte(TypeHandShake)}, nil
+	var b1 byte = 0
+	if m.NoRelay {
+		b1 = 1
+	}
+	return []byte{byte(TypeHandShake), b1}, nil
 }
