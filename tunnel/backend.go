@@ -97,6 +97,8 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 					data, _ := message.Marshal(msg)
 					t.proxy.WriteToUDP(data, raddr)
 				}
+			case *message.HandShakeMessage:
+				t.proxy.WriteToUDP(buf[:n], raddr)
 			}
 
 		}

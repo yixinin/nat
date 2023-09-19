@@ -138,6 +138,8 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 					data, _ := message.Marshal(msg)
 					t.proxy.WriteToUDP(data, raddr)
 				}
+			case *message.HandShakeMessage:
+				t.proxy.WriteToUDP(buf[:n], raddr)
 			}
 		}
 	}()
