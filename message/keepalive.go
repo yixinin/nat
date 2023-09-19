@@ -12,7 +12,7 @@ func (m *HeartbeatMessage) SetHeader(data []byte) (int, error) {
 		return 0, ErrorInvalidMessage
 	}
 	m.NoRelay = data[1] == 1
-	return 1, nil
+	return 2, nil
 }
 
 func (m HeartbeatMessage) GetHeader() ([]byte, error) {
