@@ -115,8 +115,11 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			t.proxy.WriteToUDP(data, t.raddr)
 		case data, ok := <-lpc:
 			if !ok {
+				logrus.Debug("local lpc chan closed!")
 				return nil
 			}
+			msg := message.NewPacketMessage(data)
+			data, _ = message.Marshal(msg)
 			n, err := t.proxy.WriteToUDP(data, t.raddr)
 			if err != nil {
 				return err
@@ -126,6 +129,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			}).Debugf("send %d data", n)
 		case data, ok := <-rpc:
 			if !ok {
+				logrus.Debug("local rpc chan closed!")
 				return nil
 			}
 			n, err := conn.Write(data)

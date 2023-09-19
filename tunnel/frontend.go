@@ -52,6 +52,9 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 		}()
 		conn, err := lis.Accept()
 		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"laddr": t.localAddr,
+			}).Errorf("accept exit with error:%v", err)
 			return
 		}
 		connCh <- conn
@@ -63,6 +66,9 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			return ctx.Err()
 		case conn, ok := <-connCh:
 			if !ok {
+				logrus.WithFields(logrus.Fields{
+					"laddr": t.localAddr,
+				}).Debug("accept chan closed!")
 				return nil
 			}
 			go func() {
@@ -147,8 +153,11 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 			t.proxy.WriteToUDP(data, t.raddr)
 		case data, ok := <-lpc:
 			if !ok {
+				logrus.Debug("local lpc chan closed!")
 				return nil
 			}
+			msg := message.NewPacketMessage(data)
+			data, _ = message.Marshal(msg)
 			n, err := t.proxy.WriteToUDP(data, t.raddr)
 			if err != nil {
 				return err
@@ -158,6 +167,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 			}).Debugf("send %d data", n)
 		case data, ok := <-rpc:
 			if !ok {
+				logrus.Debug("local rpc chan closed!")
 				return nil
 			}
 			n, err := conn.Write(data)
