@@ -9,6 +9,7 @@ import (
 	"net"
 	"reflect"
 	"runtime/debug"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -65,6 +66,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 		}
 	}()
 
+	sessid := atomic.Uint64{}
 	for {
 		select {
 		case <-ctx.Done():
@@ -77,7 +79,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 				return nil
 			}
 			go func() {
-				if err := t.handle(ctx, conn); err != nil {
+				if err := t.handle(ctx, sessid.Add(1), conn); err != nil {
 					logrus.WithContext(ctx).Errorf("handle proxy error:%v", err)
 				}
 			}()
@@ -85,13 +87,13 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	}
 }
 
-func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
+func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) error {
 	logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"laddr": t.localAddr,
-	}).Debugf("start handle:%v", conn)
+	}).Debugf("start handle:%d", id)
 	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"laddr": t.localAddr,
-	}).Debugf("handle:%v exit.", conn)
+	}).Debugf("handle:%d exit.", id)
 	var errCh = make(chan error, 1)
 	defer close(errCh)
 
@@ -110,7 +112,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 				errCh <- err
 				return
 			}
-			logrus.WithContext(ctx).Debugf("recv local %d data", n)
+			logrus.WithContext(ctx).WithField("id", id).Debugf("recv local %d data", n)
 			lpc <- buf[:n]
 		}
 	}()
@@ -140,6 +142,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 			case *message.PacketMessage:
 				logrus.WithContext(ctx).WithFields(logrus.Fields{
 					"raddr": raddr.String(),
+					"id":    id,
 				}).Debugf("sync proxy %d data to send list", len(msg.Data))
 				rpc <- msg.Data
 			case *message.HeartbeatMessage:
@@ -191,6 +194,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 				}
 				logrus.WithContext(ctx).WithFields(logrus.Fields{
 					"raddr": t.raddr.String(),
+					"id":    id,
 				}).Debugf("send proxy %d data", n)
 			}
 		case data, ok := <-rpc:
@@ -198,7 +202,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 				logrus.Debug("local rpc chan closed!")
 				return nil
 			}
-			logrus.WithContext(ctx).Debugf("ready send local %d data", len(data))
+			logrus.WithContext(ctx).WithField("id", id).Debugf("ready send local %d data", len(data))
 			n, err := conn.Write(data)
 			if err != nil {
 				return stderr.Wrap(err)
