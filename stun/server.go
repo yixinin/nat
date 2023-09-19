@@ -68,6 +68,10 @@ func (s *Server) Run(ctx context.Context) error {
 				if !ok {
 					return nil
 				}
+				logrus.WithContext(ctx).WithFields(logrus.Fields{
+					"raddr": raddr.String(),
+					"laddr": s.localAddr,
+				}).Debugf("recved data:%v", msg)
 				switch m.ClientType {
 				case message.Backend:
 					if err := s.dns.SetIP(ctx, m.FQDN, remoteIP); err != nil {

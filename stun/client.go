@@ -37,6 +37,15 @@ func (b *Backend) NewAccept() chan struct{} {
 }
 
 func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error) {
+	logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"stunAddr": b.stunAddr.String(),
+		"fqdn":     b.FQDN,
+	}).Info("start accept")
+	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"stunAddr": b.stunAddr.String(),
+		"fqdn":     b.FQDN,
+	}).Info("accept exit.")
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -91,6 +100,10 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			if err != nil {
 				return nil, nil, err
 			}
+			logrus.WithContext(ctx).WithFields(logrus.Fields{
+				"raddr": raddr.String(),
+				"fqdn":  b.FQDN,
+			}).Debugf("recved data:%v", msg)
 			switch msg := msg.(type) {
 			case *message.ConnMessage:
 				once.Do(func() {
@@ -114,6 +127,12 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 }
 
 func handshake(ctx context.Context, conn *net.UDPConn, raddr *net.UDPAddr) error {
+	logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"remoteAddr": raddr.String(),
+	}).Info("start handshake")
+	defer logrus.WithContext(ctx).WithFields(logrus.Fields{
+		"remoteAddr": raddr.String(),
+	}).Info("handshake exit.")
 	tk := time.NewTicker(time.Second)
 	defer tk.Stop()
 	for {
@@ -146,7 +165,7 @@ func NewFrontend(stunAddr string) (*Frontend, error) {
 	return &Frontend{stunAddr: addr}, nil
 }
 
-func (f *Frontend) Dial(ctx context.Context, addr string) (*net.UDPConn, *net.UDPAddr, error) {
+func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UDPAddr, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -158,7 +177,7 @@ func (f *Frontend) Dial(ctx context.Context, addr string) (*net.UDPConn, *net.UD
 	var dialStun = func() error {
 		msg := message.StunMessage{
 			ClientType: message.Frontend,
-			FQDN:       addr,
+			FQDN:       fqdn,
 		}
 		data, err := message.Marshal(msg)
 		if err != nil {
@@ -201,6 +220,10 @@ func (f *Frontend) Dial(ctx context.Context, addr string) (*net.UDPConn, *net.UD
 			if err != nil {
 				return nil, nil, err
 			}
+			logrus.WithContext(ctx).WithFields(logrus.Fields{
+				"raddr": raddr.String(),
+				"fqdn":  fqdn,
+			}).Debugf("recved data:%v", msg)
 			switch msg := msg.(type) {
 			case *message.ConnMessage:
 				go func() {
