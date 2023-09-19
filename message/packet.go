@@ -37,6 +37,10 @@ func NewPacketMessage(data []byte) []PacketMessage {
 	return ps
 }
 
+func (PacketMessage) Type() MessageType {
+	return TypePacket
+}
+
 func (m *PacketMessage) SetData(data []byte) (int, error) {
 	if len(data) < 8 {
 		return 0, stderr.New(CodeInvalid, "data size < 8")

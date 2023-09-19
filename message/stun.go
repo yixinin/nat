@@ -31,6 +31,10 @@ func NewStunMessage(t ClientType, fqdn string) StunMessage {
 	}
 }
 
+func (StunMessage) Type() MessageType {
+	return TypeStun
+}
+
 func (m *StunMessage) SetData(data []byte) (int, error) {
 	m.FQDN = string(data)
 	return len(data), nil

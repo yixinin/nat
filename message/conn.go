@@ -9,6 +9,10 @@ type ConnMessage struct {
 	RemoteAddr *net.UDPAddr `json:"raddr"`
 }
 
+func (ConnMessage) Type() MessageType {
+	return TypeConn
+}
+
 func (m *ConnMessage) SetHeader(data []byte) (int, error) {
 	if len(data) < 1 {
 		return 0, stderr.New(CodeInvalid, "header data size < 1")

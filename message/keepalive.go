@@ -6,6 +6,10 @@ type HeartbeatMessage struct {
 	NoRelay bool `json:"-"`
 }
 
+func (HeartbeatMessage) Type() MessageType {
+	return TypeHeartbeat
+}
+
 func (m *HeartbeatMessage) SetHeader(data []byte) (int, error) {
 	if len(data) < 2 {
 		return 0, stderr.New(CodeInvalid, "header size < 2")

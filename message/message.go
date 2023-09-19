@@ -15,11 +15,27 @@ type MessageType byte
 const (
 	TypeStun      MessageType = 1
 	TypeConn      MessageType = 2
-	TypeHandShake MessageType = 3
+	TypeHandshake MessageType = 3
 	TypeHeartbeat MessageType = 4
 	TypePacket    MessageType = 5
 )
 
+func (t MessageType) String() string {
+	switch t {
+	case TypeStun:
+		return "stun"
+	case TypeConn:
+		return "conn"
+	case TypeHandshake:
+		return "handshake"
+	case TypeHeartbeat:
+		return "heartbeat"
+	case TypePacket:
+		return "packet"
+	default:
+		return "unknown"
+	}
+}
 func (t MessageType) IsValid() bool {
 	if t != TypeConn && t != TypeStun {
 		return false
@@ -33,6 +49,7 @@ type Message interface {
 }
 
 type MessageUnmarshal interface {
+	Type() MessageType
 	SetHeader(header []byte) (int, error)
 	SetData(data []byte) (int, error)
 }
@@ -42,7 +59,7 @@ type MessageMarshal interface {
 	GetData() ([]byte, error)
 }
 
-func Unmarshal(data []byte) (any, error) {
+func Unmarshal(data []byte) (MessageUnmarshal, error) {
 	if len(data) == 0 {
 		return nil, stderr.Wrap(fmt.Errorf("empty data"))
 	}
@@ -52,7 +69,7 @@ func Unmarshal(data []byte) (any, error) {
 		msg = &StunMessage{}
 	case TypeConn:
 		msg = &ConnMessage{}
-	case TypeHandShake:
+	case TypeHandshake:
 		msg = &HandShakeMessage{}
 	case TypeHeartbeat:
 		msg = &HeartbeatMessage{}
