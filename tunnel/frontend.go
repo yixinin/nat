@@ -126,7 +126,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 			}
 			logrus.WithContext(ctx).WithFields(logrus.Fields{
 				"raddr": raddr.String(),
-			}).Debugf("recv %d data", n)
+			}).Debugf("recv proxy %d data", n)
 			msg, err := message.Unmarshal(buf[:n])
 			if err != nil {
 				errCh <- err
@@ -182,7 +182,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn) error {
 				}
 				logrus.WithContext(ctx).WithFields(logrus.Fields{
 					"raddr": t.raddr.String(),
-				}).Debugf("send %d data", n)
+				}).Debugf("send %d proxy data", n)
 			}
 		case data, ok := <-rpc:
 			if !ok {
