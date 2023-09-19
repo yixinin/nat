@@ -5,5 +5,12 @@ services:
     container_name: nat
     restart: always
     network_mode: host
-    volumes:
-      - /home/orangepi/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/quic.iakl.top:/app/ca
+    command:
+      - /app/nat
+      - '-b'
+      - '-laddr'
+      - '127.0.0.1:5212'
+      - fqdn
+      - 'drive.iakl.top'
+      - stun
+      - '114.115.218.1:2023'
