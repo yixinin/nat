@@ -48,3 +48,6 @@ func (m StunMessage) GetHeader() ([]byte, error) {
 	}
 	return []byte{byte(TypeStun), byte(m.ClientType)}, nil
 }
+func (m StunMessage) GetData() ([]byte, error) {
+	return nil, nil
+}

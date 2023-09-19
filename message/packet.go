@@ -35,3 +35,6 @@ func (m *PacketMessage) SetHeader(data []byte) (int, error) {
 func (m PacketMessage) GetHeader() ([]byte, error) {
 	return []byte{byte(TypePacket)}, nil
 }
+func (m PacketMessage) GetData() ([]byte, error) {
+	return m.Data, nil
+}

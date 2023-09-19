@@ -22,3 +22,7 @@ func (m HandShakeMessage) GetHeader() ([]byte, error) {
 	}
 	return []byte{byte(TypeHandShake), b1}, nil
 }
+
+func (m HandShakeMessage) GetData() ([]byte, error) {
+	return nil, nil
+}

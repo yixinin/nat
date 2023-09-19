@@ -36,6 +36,7 @@ type MessageUnmarshal interface {
 
 type MessageMarshal interface {
 	GetHeader() ([]byte, error)
+	GetData() ([]byte, error)
 }
 
 func Unmarshal(data []byte) (any, error) {
@@ -69,7 +70,7 @@ func Marshal(msg MessageMarshal) ([]byte, error) {
 	if err != nil {
 		return nil, stderr.Wrap(err)
 	}
-	body, err := json.Marshal(msg)
+	body, err := msg.GetData()
 	if err != nil {
 		return nil, stderr.Wrap(err)
 	}

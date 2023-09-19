@@ -22,3 +22,6 @@ func (m HeartbeatMessage) GetHeader() ([]byte, error) {
 	}
 	return []byte{byte(TypeHeartbeat), b1}, nil
 }
+func (m HeartbeatMessage) GetData() ([]byte, error) {
+	return nil, nil
+}

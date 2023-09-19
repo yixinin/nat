@@ -19,3 +19,6 @@ func (m *ConnMessage) SetHeader(data []byte) (int, error) {
 func (m ConnMessage) GetHeader() ([]byte, error) {
 	return []byte{byte(TypeConn)}, nil
 }
+func (m ConnMessage) GetData() ([]byte, error) {
+	return nil, nil
+}
