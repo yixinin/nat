@@ -6,6 +6,7 @@ import (
 	"io"
 	"nat/message"
 	"net"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -82,25 +83,26 @@ func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan mess
 	}
 	defer conn.Close()
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	udp := t.Proxy.ReadWriter(id)
+	defer udp.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
-		defer cancel()
+		defer wg.Done()
 		_, err := io.Copy(conn, udp)
 		if err != nil {
-			log.Error("local copy to proxy error:%v", err)
+			log.Errorf("local copy to proxy error:%v", err)
 		}
 
 	}()
 	go func() {
-		defer cancel()
+		defer wg.Done()
 		_, err := io.Copy(udp, conn)
 		if err != nil {
-			log.Error("proxy copy to local error:%v", err)
+			log.Errorf("proxy copy to local error:%v", err)
 		}
 	}()
-	<-ctx.Done()
+	wg.Wait()
 	return ctx.Err()
 }

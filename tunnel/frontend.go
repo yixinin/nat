@@ -8,6 +8,7 @@ import (
 	"nat/stderr"
 	"net"
 	"runtime/debug"
+	"sync"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -117,12 +118,12 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 	defer log.Debug("handle exit.")
 	defer conn.Close()
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	udp := t.Proxy.ReadWriter(id)
+	defer udp.Close()
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
-		defer cancel()
+		defer wg.Done()
 		n, err := io.Copy(conn, udp)
 		if err != nil {
 			log.Errorf("local copy to proxy error:%v", err)
@@ -130,13 +131,13 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 		log.Debugf("end local copy %d to proxy", n)
 	}()
 	go func() {
-		defer cancel()
+		defer wg.Done()
 		n, err := io.Copy(udp, conn)
 		if err != nil {
 			log.Errorf("proxy copy to local error:%v", err)
 		}
 		log.Debugf("end proxy copy %d to local", n)
 	}()
-	<-ctx.Done()
+	wg.Wait()
 	return ctx.Err()
 }
