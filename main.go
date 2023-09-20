@@ -29,7 +29,7 @@ func main() {
 	flag.StringVar(&localAddr, "laddr", "", "listen addr")
 	flag.StringVar(&fqdn, "fqdn", "", "fqdn")
 
-	flag.BoolVar(&debug, "debug", false, "debug mode")
+	flag.BoolVar(&debug, "debug", true, "debug mode")
 	flag.Parse()
 
 	logrus.SetLevel(logrus.InfoLevel)
