@@ -28,7 +28,7 @@ func NewBackend(fqdn, stunAddr string) (*Backend, error) {
 
 func (b *Backend) Run(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"localAddr": b.localAddr,
+		"laddr": b.localAddr,
 	})
 	log.Infof("run backend server ")
 	defer log.Infof("backend server exit.")

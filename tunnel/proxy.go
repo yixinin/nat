@@ -121,7 +121,7 @@ func (p *Proxy) SendMessage(msg ...message.Message) {
 
 func (p *Proxy) RunProxy(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"remoteAddr": p.raddr.String(),
+		"raddr": p.raddr.String(),
 	})
 	log.Infof("start proxy")
 	defer log.Infof("proxy exit.")

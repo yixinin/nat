@@ -31,8 +31,8 @@ func NewFrontend(localAddr, stunAddr, fqdn string) *Frontend {
 
 func (f *Frontend) Run(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"localAddr": f.localAddr,
-		"fqdn":      f.fqdn,
+		"laddr": f.localAddr,
+		"fqdn":  f.fqdn,
 	})
 	log.Info("start frontend")
 

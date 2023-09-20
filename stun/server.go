@@ -37,7 +37,7 @@ type RemoteData struct {
 
 func (s *Server) Run(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"localAddr": s.localAddr.String(),
+		"laddr": s.localAddr.String(),
 	})
 	log.Infof("start stun server")
 	defer log.Infof("stun server exit.")

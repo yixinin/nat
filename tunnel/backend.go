@@ -25,8 +25,8 @@ func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPCo
 
 func (t *BackendTunnel) Run(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"localAddr":  t.localAddr,
-		"remoteAddr": t.raddr.String(),
+		"laddr": t.localAddr,
+		"raddr": t.raddr.String(),
 	})
 	log.Infof("start backend tunnel")
 	defer log.Infof("backend tunnel exit.")
@@ -69,9 +69,9 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 
 func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan message.PacketMessage) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"id":         id,
-		"localAddr":  t.localAddr,
-		"remoteAddr": t.raddr.String(),
+		"id":    id,
+		"laddr": t.localAddr,
+		"raddr": t.raddr.String(),
 	})
 	log.Infof("start backend tunnel handle")
 	defer log.Infof("backend tunnel hanle exit.")

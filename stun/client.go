@@ -12,7 +12,7 @@ import (
 
 func handshake(ctx context.Context, conn *net.UDPConn, raddr *net.UDPAddr) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"remoteAddr": raddr.String(),
+		"raddr": raddr.String(),
 	})
 	log.Info("start handshake")
 	defer log.Info("handshake exit.")

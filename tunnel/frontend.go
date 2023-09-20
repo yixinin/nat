@@ -28,8 +28,8 @@ func NewFrontendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPC
 
 func (t *FrontendTunnel) Run(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"localAddr":  t.localAddr,
-		"remoteAddr": t.raddr.String(),
+		"laddr": t.localAddr,
+		"raddr": t.raddr.String(),
 	})
 	log.Infof("start frontend tunnel")
 	defer log.Infof("frontend tunnel exit.")
