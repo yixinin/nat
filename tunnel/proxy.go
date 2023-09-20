@@ -77,6 +77,7 @@ func (rw *rw) Read(buf []byte) (int, error) {
 		if len(data.Data) > len(buf) {
 			return 0, errors.New("buffer too small")
 		}
+		logrus.Debug("read: ", string(data.Data))
 		return copy(buf, data.Data), nil
 	}
 
@@ -86,6 +87,7 @@ func (rw *rw) Write(buf []byte) (int, error) {
 	for i := range msgs {
 		rw.sendCH <- &msgs[i]
 	}
+	logrus.Debug("write: ", string(buf))
 	return len(buf), nil
 }
 func (rw *rw) Close() error {
