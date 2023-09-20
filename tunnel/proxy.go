@@ -85,6 +85,7 @@ func (rw *rw) Write(buf []byte) (int, error) {
 	msgs := message.NewPacketMessage(rw.id, rw.seq.Load(), buf)
 	for i := range msgs {
 		rw.sendCH <- &msgs[i]
+		rw.seq.Add(1)
 	}
 	return len(buf), nil
 }
@@ -111,6 +112,9 @@ func (p *Proxy) ReadWriter(id uint64) io.ReadWriteCloser {
 
 func (p *Proxy) SendMessage(msg ...message.Message) {
 	for _, msg := range msg {
+		if msg, ok := msg.(*message.PacketMessage); ok {
+			logrus.Debugf("send data id: %d, seq: %d", msg.Id, msg.Seq)
+		}
 		p.sendCh <- msg
 	}
 }
@@ -151,9 +155,13 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 			p.errCh <- err
 			continue
 		}
-		log.Debugf("recv proxy msg:%s size:%d", msg.Type(), n)
+		log = log.WithField("type", msg.Type())
 		switch msg := msg.(type) {
 		case *message.PacketMessage:
+			log = log.WithFields(logrus.Fields{
+				"id":  msg.Id,
+				"seq": msg.Seq,
+			})
 			ch := p.GetRecvCh(msg.Id)
 			if ch != nil {
 				ch <- msg
@@ -177,6 +185,7 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 		default:
 			log.Debugf("drop proxy msg:%s size:%d", msg.Type(), n)
 		}
+		log.Debugf("recv proxy msg:%s size:%d", msg.Type(), n)
 	}
 }
 
@@ -209,9 +218,17 @@ func (p *Proxy) loop(ctx context.Context) {
 					"raddr": p.raddr.String(),
 				}).Debugf("send proxy msg:%s error:%v", msg.Type(), err)
 			} else {
-				log.WithFields(logrus.Fields{
+				log := log.WithFields(logrus.Fields{
 					"raddr": p.raddr.String(),
-				}).Debugf("send proxy msg:%s size:%d", msg.Type(), n)
+				})
+				switch msg := msg.(type) {
+				case *message.PacketMessage:
+					log = log.WithFields(logrus.Fields{
+						"id":  msg.Id,
+						"seq": msg.Seq,
+					})
+				}
+				log.Debugf("send proxy msg:%s size:%d", msg.Type(), n)
 			}
 
 		}
