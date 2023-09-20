@@ -82,10 +82,9 @@ func (rw *rw) Read(buf []byte) (int, error) {
 
 }
 func (rw *rw) Write(buf []byte) (int, error) {
-	msgs := message.NewPacketMessage(rw.id, rw.seq.Load(), buf)
+	msgs := message.NewPacketMessage(rw.id, &rw.seq, buf)
 	for i := range msgs {
 		rw.sendCH <- &msgs[i]
-		rw.seq.Add(1)
 	}
 	return len(buf), nil
 }
@@ -165,6 +164,7 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 			ch := p.GetRecvCh(msg.Id)
 			if ch != nil {
 				ch <- msg
+				log.Debugf("recv proxy msg:%s size:%d", msg.Type(), n)
 			} else {
 				log.Debugf("channel closed! drop proxy msg:%s size:%d", msg.Type(), n)
 			}
@@ -185,7 +185,7 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 		default:
 			log.Debugf("drop proxy msg:%s size:%d", msg.Type(), n)
 		}
-		log.Debugf("recv proxy msg:%s size:%d", msg.Type(), n)
+
 	}
 }
 
@@ -227,8 +227,9 @@ func (p *Proxy) loop(ctx context.Context) {
 						"id":  msg.Id,
 						"seq": msg.Seq,
 					})
+					log.Debugf("send proxy msg:%s size:%d", msg.Type(), n)
 				}
-				log.Debugf("send proxy msg:%s size:%d", msg.Type(), n)
+
 			}
 
 		}

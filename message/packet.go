@@ -3,6 +3,7 @@ package message
 import (
 	"encoding/binary"
 	"nat/stderr"
+	"sync/atomic"
 )
 
 const BufferSize = 1024 * 2
@@ -14,11 +15,11 @@ type PacketMessage struct {
 	Data []byte `json:"data"`
 }
 
-func NewPacketMessage(id, seq uint64, data []byte) []PacketMessage {
+func NewPacketMessage(id uint64, seq *atomic.Uint64, data []byte) []PacketMessage {
 	if len(data) <= PacketSize {
 		return []PacketMessage{{
 			Id:   id,
-			Seq:  seq,
+			Seq:  seq.Add(1),
 			Data: data,
 		}}
 	}
@@ -30,10 +31,9 @@ func NewPacketMessage(id, seq uint64, data []byte) []PacketMessage {
 		}
 		ps = append(ps, PacketMessage{
 			Id:   id,
-			Seq:  seq,
+			Seq:  seq.Add(1),
 			Data: data[i:end],
 		})
-		seq++
 	}
 	return ps
 }
