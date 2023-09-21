@@ -16,7 +16,7 @@ func (m *ReadyMessage) SetHeader(data []byte) (int, error) {
 	if MessageType(data[0]) != TypeReady {
 		return 0, stderr.New(CodeInvalid, "not hb msg")
 	}
-	return 2, nil
+	return 1, nil
 }
 func (m *ReadyMessage) SetData(data []byte) (int, error) {
 	return 0, nil
