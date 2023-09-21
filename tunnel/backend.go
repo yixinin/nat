@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
+	"nat/message"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -39,6 +40,29 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// send peer ready
+	data, _ := message.Marshal(message.ReadyMessage{})
+	_, err := t.rconn.WriteToUDP(data, t.raddr)
+	if err != nil {
+		return err
+	}
+	// wait peer ready
+	var buf = make([]byte, 32)
+	for {
+		n, _, err := t.rconn.ReadFromUDP(buf)
+		if err != nil {
+			return err
+		}
+		msg, err := message.Unmarshal(buf[:n])
+		if err != nil {
+			return err
+		}
+		if msg.Type() == message.TypeReady {
+			break
+		}
+	}
+
+	// listen quic
 	lis, err := quic.Listen(t.rconn, &tls.Config{}, &quic.Config{})
 	if err != nil {
 		return err
