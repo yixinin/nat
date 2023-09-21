@@ -115,7 +115,6 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 				return nil
 			}
 
-<<<<<<< HEAD
 			sctx, scancel := context.WithTimeout(ctx, 10*time.Second)
 			defer scancel()
 			stream, err := quicConn.OpenStreamSync(sctx)
@@ -126,14 +125,6 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			go func() {
 				if err := t.handle(ctx, conn, stream); err != nil {
 					log.WithField("id", stream.StreamID()).Errorf("handle frontend session error:%v", err)
-=======
-			msg := message.NewTunnelMessage(sessid.Add(1))
-			t.Proxy.SendCmdMessage(&msg)
-
-			go func(msg message.TunnelMessage) {
-				if err := t.handle(ctx, sessid.Load(), conn); err != nil {
-					log.WithField("id", sessid.Load()).Errorf("handle frontend session error:%v", err)
->>>>>>> 5b4c725f6cecd96fd26f7ea81819e44c16109d4d
 				}
 			}()
 
