@@ -62,8 +62,14 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		}
 	}
 
+	ca, err := tls.LoadX509KeyPair("quic.crt", "quic.key")
+	if err != nil {
+		return err
+	}
 	// listen quic
-	lis, err := quic.Listen(t.rconn, &tls.Config{}, &quic.Config{})
+	lis, err := quic.Listen(t.rconn, &tls.Config{
+		Certificates: []tls.Certificate{ca},
+	}, &quic.Config{})
 	if err != nil {
 		return err
 	}
