@@ -97,7 +97,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			}
 
 			msg := message.NewTunnelMessage(sessid.Add(1))
-			t.Proxy.SendMessage(&msg)
+			t.Proxy.SendCmdMessage(&msg)
 
 			go func(msg message.TunnelMessage) {
 				if err := t.handle(ctx, sessid.Load(), conn); err != nil {

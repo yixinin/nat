@@ -22,6 +22,7 @@ type Proxy struct {
 	recvChs map[uint64]chan message.MessageUnmarshal
 	tch     chan *message.TunnelMessage
 	sendCh  chan message.Message
+	pSendCh chan message.PacketMessage
 }
 
 func (p *Proxy) AddRecvCh(id uint64, ch chan message.MessageUnmarshal) {
@@ -53,6 +54,7 @@ func NewProxy(remoteAddr *net.UDPAddr, conn *net.UDPConn) *Proxy {
 		recvChs: make(map[uint64]chan message.MessageUnmarshal, 8),
 		tch:     make(chan *message.TunnelMessage, 1),
 		sendCh:  make(chan message.Message, 10),
+		pSendCh: make(chan message.PacketMessage, 10),
 	}
 }
 
@@ -61,7 +63,7 @@ type rw struct {
 	seq    atomic.Uint64
 	id     uint64
 	recvCh chan message.MessageUnmarshal
-	sendCH chan message.Message
+	sendCH chan message.PacketMessage
 }
 
 func (rw *rw) Read(buf []byte) (int, error) {
@@ -77,7 +79,7 @@ func (rw *rw) Read(buf []byte) (int, error) {
 		if len(data.Data) > len(buf) {
 			return 0, errors.New("buffer too small")
 		}
-		logrus.Debug("read: ", string(data.Data))
+		// logrus.Debug("read: ", string(data.Data))
 		return copy(buf, data.Data), nil
 	}
 
@@ -85,9 +87,9 @@ func (rw *rw) Read(buf []byte) (int, error) {
 func (rw *rw) Write(buf []byte) (int, error) {
 	msgs := message.NewPacketMessage(rw.id, &rw.seq, buf)
 	for i := range msgs {
-		rw.sendCH <- &msgs[i]
+		rw.sendCH <- msgs[i]
 	}
-	logrus.Debug("write: ", string(buf))
+	// logrus.Debug("write: ", string(buf))
 	return len(buf), nil
 }
 func (rw *rw) Close() error {
@@ -102,7 +104,7 @@ func (p *Proxy) ReadWriter(id uint64) io.ReadWriteCloser {
 
 	rw := &rw{
 		id:     id,
-		sendCH: p.sendCh,
+		sendCH: p.pSendCh,
 		recvCh: recvCh,
 	}
 	rw.cancel = func() {
@@ -111,7 +113,7 @@ func (p *Proxy) ReadWriter(id uint64) io.ReadWriteCloser {
 	return rw
 }
 
-func (p *Proxy) SendMessage(msg ...message.Message) {
+func (p *Proxy) SendCmdMessage(msg ...message.Message) {
 	for _, msg := range msg {
 		if msg, ok := msg.(*message.PacketMessage); ok {
 			logrus.Debugf("send data id: %d, seq: %d", msg.Id, msg.Seq)
@@ -148,12 +150,12 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 			continue
 		}
 		if raddr.String() != p.raddr.String() {
-			log.Debug("recv unkown data")
+			log.Errorf("recv unkown %d data, raddr:%s", n, raddr)
 			continue
 		}
 		msg, err := message.Unmarshal(buf[:n])
 		if err != nil {
-			p.errCh <- err
+			log.Errorf("unmarshal error:%v, data size:%d", err, n)
 			continue
 		}
 		log = log.WithField("type", msg.Type())
@@ -166,7 +168,7 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 			ch := p.GetRecvCh(msg.Id)
 			if ch != nil {
 				ch <- msg
-				log.Debugf("recv proxy msg:%s size:%d", msg.Type(), n)
+				log.Debugf("recv proxy msg:%s size:%d", msg.Type(), n-message.PktHeaderSize)
 			} else {
 				log.Debugf("channel closed! drop proxy msg:%s size:%d", msg.Type(), n)
 			}
@@ -177,12 +179,12 @@ func (p *Proxy) RunProxy(ctx context.Context) error {
 		case *message.HeartbeatMessage:
 			if !msg.NoRelay {
 				msg.NoRelay = true
-				p.SendMessage(msg)
+				p.SendCmdMessage(msg)
 			}
 		case *message.HandShakeMessage:
 			if !msg.NoRelay {
 				msg.NoRelay = true
-				p.SendMessage(msg)
+				p.SendCmdMessage(msg)
 			}
 		default:
 			log.Debugf("drop proxy msg:%s size:%d", msg.Type(), n)
@@ -207,8 +209,8 @@ func (p *Proxy) loop(ctx context.Context) {
 			msg := message.HeartbeatMessage{
 				NoRelay: true,
 			}
-			p.SendMessage(&msg)
-		case msg := <-p.sendCh:
+			p.SendCmdMessage(&msg)
+		case msg := <-p.pSendCh:
 			data, err := message.Marshal(msg)
 			if err != nil {
 				logrus.Error(err)
@@ -220,20 +222,26 @@ func (p *Proxy) loop(ctx context.Context) {
 					"raddr": p.raddr.String(),
 				}).Debugf("send proxy msg:%s error:%v", msg.Type(), err)
 			} else {
-				log := log.WithFields(logrus.Fields{
+				log = log.WithFields(logrus.Fields{
 					"raddr": p.raddr.String(),
+					"id":    msg.Id,
+					"seq":   msg.Seq,
 				})
-				switch msg := msg.(type) {
-				case *message.PacketMessage:
-					log = log.WithFields(logrus.Fields{
-						"id":  msg.Id,
-						"seq": msg.Seq,
-					})
-					log.Debugf("send proxy msg:%s size:%d", msg.Type(), n)
-				}
+				log.Debugf("send proxy msg:%s size:%d", msg.Type(), n-message.PktHeaderSize)
 
 			}
-
+		case msg := <-p.sendCh:
+			data, err := message.Marshal(msg)
+			if err != nil {
+				logrus.Error(err)
+				continue
+			}
+			_, err = p.rconn.WriteToUDP(data, p.raddr)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"raddr": p.raddr.String(),
+				}).Debugf("send proxy msg:%s error:%v", msg.Type(), err)
+			}
 		}
 	}
 }
