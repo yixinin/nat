@@ -55,6 +55,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		}
 		msg, err := message.Unmarshal(buf[:n])
 		if err != nil {
+			log.Info(string(buf[:n]))
 			return err
 		}
 		if msg.Type() == message.TypeReady {
