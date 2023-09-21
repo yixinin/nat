@@ -2,27 +2,30 @@ package tunnel
 
 import (
 	"context"
-	"errors"
+	"crypto/tls"
 	"io"
-	"nat/message"
 	"nat/stderr"
 	"net"
 	"runtime/debug"
 	"sync"
-	"sync/atomic"
+	"time"
 
+	"github.com/quic-go/quic-go"
 	"github.com/sirupsen/logrus"
 )
 
 type FrontendTunnel struct {
-	*Proxy
+	rconn *net.UDPConn
+	raddr *net.UDPAddr
+
 	localAddr string
 }
 
 func NewFrontendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *FrontendTunnel {
 	t := &FrontendTunnel{
 		localAddr: localAddr,
-		Proxy:     NewProxy(remoteAddr, conn),
+		rconn:     conn,
+		raddr:     remoteAddr,
 	}
 	return t
 }
@@ -38,13 +41,13 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	go func() {
-		err := t.RunProxy(ctx)
-		if err != nil {
-			log.Errorf("proxy error:%v", err)
-			cancel()
-		}
-	}()
+	qctx, qcancel := context.WithTimeout(ctx, 10*time.Second)
+	defer qcancel()
+
+	quicConn, err := quic.Dial(qctx, t.rconn, t.raddr, &tls.Config{InsecureSkipVerify: true}, &quic.Config{})
+	if err != nil {
+		return err
+	}
 
 	lis, err := net.Listen("tcp", t.localAddr)
 	if err != nil {
@@ -79,52 +82,48 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 		}
 	}()
 
-	sessid := atomic.Uint64{}
-
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case err := <-t.errCh:
-			log.Errorf("proxy recv error:%v", err)
-			if errors.Is(err, net.ErrClosed) {
-				return err
-			}
 		case conn, ok := <-connCh:
 			if !ok && conn == nil {
 				log.Debug("accept chan closed!")
 				return nil
 			}
 
-			msg := message.NewTunnelMessage(sessid.Add(1))
-			t.Proxy.SendMessage(&msg)
-
-			go func(msg message.TunnelMessage) {
-				if err := t.handle(ctx, sessid.Load(), conn); err != nil {
-					log.WithField("id", sessid.Load()).Errorf("handle frontend session error:%v", err)
+			sctx, scancel := context.WithTimeout(ctx, 10*time.Second)
+			defer scancel()
+			stream, err := quicConn.OpenStreamSync(sctx)
+			if err != nil {
+				log.Errorf("open stream error:%v", err)
+				continue
+			}
+			go func() {
+				if err := t.handle(ctx, conn, stream); err != nil {
+					log.WithField("id", stream.StreamID()).Errorf("handle frontend session error:%v", err)
 				}
-			}(msg)
+			}()
 
 		}
 	}
 }
 
-func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) error {
+func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn, stream quic.Stream) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"id":    id,
+		"id":    stream.StreamID(),
 		"laddr": t.localAddr,
 	})
 	log.Debug("start handle")
 	defer log.Debug("handle exit.")
 	defer conn.Close()
+	defer stream.Close()
 
-	udp := t.Proxy.ReadWriter(id)
-	defer udp.Close()
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		n, err := io.Copy(conn, udp)
+		n, err := io.Copy(conn, stream)
 		if err != nil {
 			log.Errorf("local copy to proxy error:%v", err)
 		}
@@ -132,7 +131,7 @@ func (t *FrontendTunnel) handle(ctx context.Context, id uint64, conn net.Conn) e
 	}()
 	go func() {
 		defer wg.Done()
-		n, err := io.Copy(udp, conn)
+		n, err := io.Copy(stream, conn)
 		if err != nil {
 			log.Errorf("proxy copy to local error:%v", err)
 		}

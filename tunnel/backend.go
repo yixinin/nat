@@ -2,24 +2,28 @@ package tunnel
 
 import (
 	"context"
-	"errors"
+	"crypto/tls"
 	"io"
-	"nat/message"
 	"net"
+	"runtime/debug"
 	"sync"
 
+	"github.com/quic-go/quic-go"
 	"github.com/sirupsen/logrus"
 )
 
 type BackendTunnel struct {
-	*Proxy
+	rconn *net.UDPConn
+	raddr *net.UDPAddr
+
 	localAddr string
 }
 
 func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *BackendTunnel {
 	t := &BackendTunnel{
 		localAddr: localAddr,
-		Proxy:     NewProxy(remoteAddr, conn),
+		rconn:     conn,
+		raddr:     remoteAddr,
 	}
 	return t
 }
@@ -35,11 +39,40 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	lis, err := quic.Listen(t.rconn, &tls.Config{}, &quic.Config{})
+	if err != nil {
+		return err
+	}
+	var steamCh = make(chan quic.Stream, 1)
+	defer close(steamCh)
 	go func() {
-		err := t.RunProxy(ctx)
+		defer func() {
+			if r := recover(); r != nil {
+				log.WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
+			}
+			close(steamCh)
+		}()
+		conn, err := lis.Accept(ctx)
 		if err != nil {
-			log.Errorf("proxy error:%v", err)
+			logrus.WithFields(logrus.Fields{
+				"laddr": t.localAddr,
+			}).Errorf("accept quic conn exit with error:%v", err)
 			cancel()
+			return
+		}
+
+		for {
+			stream, err := conn.AcceptStream(ctx)
+			if err != nil {
+				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						"laddr": t.localAddr,
+					}).Errorf("accept exit with error:%v", err)
+					cancel()
+					return
+				}
+				steamCh <- stream
+			}
 		}
 	}()
 
@@ -47,30 +80,24 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case err := <-t.errCh:
-			log.Errorf("proxy recv error:%v", err)
-			if errors.Is(err, net.ErrClosed) {
-				return err
-			}
-		case msg, ok := <-t.tch:
-			if !ok && msg == nil {
+		case stream, ok := <-steamCh:
+			if !ok && stream == nil {
 				logrus.Info("proxy msg chan closed!")
 				return nil
 			}
-			ch := make(chan message.PacketMessage, 10)
-			go func(msg *message.TunnelMessage) {
-				err := t.handle(ctx, msg.Id, ch)
+			go func() {
+				err := t.handle(ctx, stream)
 				if err != nil {
-					log.Errorf("handle backend session %d error:%v", msg.Id, err)
+					log.Errorf("handle backend session %d error:%v", stream.StreamID(), err)
 				}
-			}(msg)
+			}()
 		}
 	}
 }
 
-func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan message.PacketMessage) error {
+func (t *BackendTunnel) handle(ctx context.Context, stream quic.Stream) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"id":    id,
+		"id":    stream.StreamID(),
 		"laddr": t.localAddr,
 		"raddr": t.raddr.String(),
 	})
@@ -82,15 +109,13 @@ func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan mess
 		return err
 	}
 	defer conn.Close()
-
-	udp := t.Proxy.ReadWriter(id)
-	defer udp.Close()
+	defer stream.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, err := io.Copy(conn, udp)
+		_, err := io.Copy(conn, stream)
 		if err != nil {
 			log.Errorf("local copy to proxy error:%v", err)
 		}
@@ -98,7 +123,7 @@ func (t *BackendTunnel) handle(ctx context.Context, id uint64, msgChan chan mess
 	}()
 	go func() {
 		defer wg.Done()
-		_, err := io.Copy(udp, conn)
+		_, err := io.Copy(stream, conn)
 		if err != nil {
 			log.Errorf("proxy copy to local error:%v", err)
 		}

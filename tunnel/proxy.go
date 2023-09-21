@@ -45,6 +45,7 @@ func (p *Proxy) DelRecvCh(id uint64) {
 }
 
 func NewProxy(remoteAddr *net.UDPAddr, conn *net.UDPConn) *Proxy {
+
 	return &Proxy{
 		rconn: conn,
 		raddr: remoteAddr,
