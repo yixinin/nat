@@ -8,6 +8,7 @@ import (
 	"net"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/quic-go/quic-go"
 	"github.com/sirupsen/logrus"
@@ -62,6 +63,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			break
 		}
 	}
+	log.Info("ready quic accept")
 
 	ca, err := tls.LoadX509KeyPair("quic.crt", "quic.key")
 	if err != nil {
@@ -74,14 +76,43 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var steamCh = make(chan quic.Stream, 1)
-	defer close(steamCh)
+	conn, err := lis.Accept(ctx)
+	if err != nil {
+		return err
+	}
+
+	stream, err := conn.AcceptStream(ctx)
+	if err != nil {
+		return err
+	}
+	tk := time.NewTicker(10 * time.Second)
+	defer tk.Stop()
+	go func() {
+		for range tk.C {
+			stream.Write([]byte("::"))
+		}
+	}()
+
+	var streamCh = make(chan quic.Stream, 1)
+	defer close(streamCh)
+	var acceptStream = func(conn quic.Connection) {
+		for {
+			stream, err := conn.AcceptStream(ctx)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			streamCh <- stream
+		}
+	}
+	go acceptStream(conn)
+
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.WithField("stacks", string(debug.Stack())).Errorf("recovered:%v", r)
 			}
-			close(steamCh)
+			close(streamCh)
 		}()
 		conn, err := lis.Accept(ctx)
 		if err != nil {
@@ -92,26 +123,14 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			return
 		}
 
-		for {
-			stream, err := conn.AcceptStream(ctx)
-			if err != nil {
-				if err != nil {
-					logrus.WithFields(logrus.Fields{
-						"laddr": t.localAddr,
-					}).Errorf("accept exit with error:%v", err)
-					cancel()
-					return
-				}
-				steamCh <- stream
-			}
-		}
+		go acceptStream(conn)
 	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case stream, ok := <-steamCh:
+		case stream, ok := <-streamCh:
 			if !ok && stream == nil {
 				logrus.Info("proxy msg chan closed!")
 				return nil
@@ -148,7 +167,9 @@ func (t *BackendTunnel) handle(ctx context.Context, stream quic.Stream) error {
 		defer wg.Done()
 		_, err := io.Copy(conn, stream)
 		if err != nil {
-			log.Errorf("local copy to proxy error:%v", err)
+			log.Errorf("stream copy to conn error:%v", err)
+		} else {
+			log.Info("end stream copy to conn")
 		}
 
 	}()
@@ -156,7 +177,9 @@ func (t *BackendTunnel) handle(ctx context.Context, stream quic.Stream) error {
 		defer wg.Done()
 		_, err := io.Copy(stream, conn)
 		if err != nil {
-			log.Errorf("proxy copy to local error:%v", err)
+			log.Errorf("conn copy to stream error:%v", err)
+		} else {
+			log.Info("end conn copy to stream")
 		}
 	}()
 	wg.Wait()

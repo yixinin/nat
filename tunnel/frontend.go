@@ -60,6 +60,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			break
 		}
 	}
+	log.Info("ready quic connect")
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -71,6 +72,18 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	hbStream, err := quicConn.OpenStreamSync(ctx)
+	if err != nil {
+		return err
+	}
+	tk := time.NewTicker(10 * time.Second)
+	defer tk.Stop()
+	go func() {
+		for range tk.C {
+			hbStream.Write([]byte("::"))
+		}
+	}()
 
 	lis, err := net.Listen("tcp", t.localAddr)
 	if err != nil {
@@ -148,17 +161,20 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn, stream quic.
 		defer wg.Done()
 		n, err := io.Copy(conn, stream)
 		if err != nil {
-			log.Errorf("local copy to proxy error:%v", err)
+			log.Errorf("stream copy to conn error:%v", err)
+		} else {
+			log.Debugf("end stream copy %d to conn", n)
 		}
-		log.Debugf("end local copy %d to proxy", n)
 	}()
 	go func() {
 		defer wg.Done()
 		n, err := io.Copy(stream, conn)
 		if err != nil {
-			log.Errorf("proxy copy to local error:%v", err)
+			log.Errorf("conn copy to stream error:%v", err)
+		} else {
+			log.Debugf("end conn copy %d to stream", n)
 		}
-		log.Debugf("end proxy copy %d to local", n)
+
 	}()
 	wg.Wait()
 	return ctx.Err()
