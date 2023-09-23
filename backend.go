@@ -11,8 +11,9 @@ import (
 )
 
 type Backend struct {
-	laddr string
-	stun  *stun.Backend
+	laddr             string
+	stun              *stun.Backend
+	certFile, keyFile string
 }
 
 func NewBackend(c *BackendConfig) (*Backend, error) {
@@ -21,8 +22,10 @@ func NewBackend(c *BackendConfig) (*Backend, error) {
 		return nil, stderr.Wrap(err)
 	}
 	return &Backend{
-		laddr: c.Addr,
-		stun:  stun,
+		laddr:    c.Addr,
+		stun:     stun,
+		certFile: c.CertFile,
+		keyFile:  c.KeyFile,
 	}, nil
 }
 
@@ -68,7 +71,7 @@ func (b *Backend) accept(ctx context.Context) {
 		return
 	}
 
-	t := tunnel.NewBackendTunnel(b.laddr, raddr, conn)
+	t := tunnel.NewBackendTunnel(b.laddr, raddr, conn, b.certFile, b.keyFile)
 	err = t.Run(ctx)
 	if err != nil {
 		logrus.WithContext(ctx).Errorf("run tunnel error:%v", err)

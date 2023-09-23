@@ -19,14 +19,18 @@ type BackendTunnel struct {
 	rconn *net.UDPConn
 	raddr *net.UDPAddr
 
+	certFile, keyFile string
+
 	laddr string
 }
 
-func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *BackendTunnel {
+func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn, certFile, keyFile string) *BackendTunnel {
 	t := &BackendTunnel{
-		laddr: localAddr,
-		rconn: conn,
-		raddr: remoteAddr,
+		laddr:    localAddr,
+		rconn:    conn,
+		raddr:    remoteAddr,
+		certFile: certFile,
+		keyFile:  keyFile,
 	}
 	return t
 }
@@ -66,7 +70,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		}
 	}
 
-	ca, err := tls.LoadX509KeyPair("quic.crt", "quic.key")
+	ca, err := tls.LoadX509KeyPair(t.certFile, t.keyFile)
 	if err != nil {
 		return stderr.Wrap(err)
 	}

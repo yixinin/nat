@@ -22,7 +22,7 @@ func TestQuic(t *testing.T) {
 	hc := http.Client{
 		Transport: roundTripper,
 	}
-	resp, err := hc.Get("https://quic.iakl.top:8081/hello/you")
+	resp, err := hc.Get("https://quic.iakl.top:444/hello")
 	if err != nil {
 		t.Error(err)
 		return
