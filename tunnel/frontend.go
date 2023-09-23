@@ -60,23 +60,24 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			break
 		}
 	}
-	log.Info("ready quic connect")
+	log.Info("ready quic dial")
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	qctx, qcancel := context.WithTimeout(ctx, 10*time.Second)
+	qctx, qcancel := context.WithTimeout(ctx, 30*time.Second)
 	defer qcancel()
 
 	quicConn, err := quic.Dial(qctx, t.rconn, t.raddr, &tls.Config{InsecureSkipVerify: true}, &quic.Config{})
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
-
+	log.Info("start open stream")
 	hbStream, err := quicConn.OpenStreamSync(ctx)
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
+
 	tk := time.NewTicker(10 * time.Second)
 	defer tk.Stop()
 	go func() {

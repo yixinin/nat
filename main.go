@@ -13,6 +13,7 @@ var (
 	ddns       bool
 	backend    bool
 	frontend   bool
+	runQuic    bool
 	stunAddr   string
 	localAddr  string
 	fqdn       string
@@ -25,6 +26,7 @@ func main() {
 	flag.BoolVar(&backend, "b", false, "backend server")
 	flag.BoolVar(&frontend, "f", false, "frontend cient")
 	flag.BoolVar(&ddns, "ddns", false, "run ddns server")
+	flag.BoolVar(&runQuic, "quic", false, "run quic server on 444")
 	flag.StringVar(&stunAddr, "stun", "114.115.218.1:2023", "stun server addr")
 	flag.StringVar(&localAddr, "laddr", "", "listen addr")
 	flag.StringVar(&fqdn, "fqdn", "", "fqdn")

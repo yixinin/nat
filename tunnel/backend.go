@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"io"
 	"nat/message"
+	"nat/stderr"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -45,7 +46,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	data, _ := message.Marshal(message.ReadyMessage{})
 	_, err := t.rconn.WriteToUDP(data, t.raddr)
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
 	// wait peer ready
 	var buf = make([]byte, 32)
@@ -57,7 +58,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		msg, err := message.Unmarshal(buf[:n])
 		if err != nil {
 			log.Info(string(buf[:n]))
-			return err
+			return stderr.Wrap(err)
 		}
 		if msg.Type() == message.TypeReady {
 			break
@@ -67,23 +68,24 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 
 	ca, err := tls.LoadX509KeyPair("quic.crt", "quic.key")
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
 	// listen quic
 	lis, err := quic.Listen(t.rconn, &tls.Config{
 		Certificates: []tls.Certificate{ca},
 	}, &quic.Config{})
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
+	log.Info("start quic accept")
 	conn, err := lis.Accept(ctx)
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
-
+	log.Info("start heartbeat stream accept")
 	stream, err := conn.AcceptStream(ctx)
 	if err != nil {
-		return err
+		return stderr.Wrap(err)
 	}
 	tk := time.NewTicker(10 * time.Second)
 	defer tk.Stop()
@@ -92,7 +94,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			stream.Write([]byte("::"))
 		}
 	}()
-
+	log.Info("start data stream accept")
 	var streamCh = make(chan quic.Stream, 1)
 	defer close(streamCh)
 	var acceptStream = func(conn quic.Connection) {
