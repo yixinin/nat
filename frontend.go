@@ -17,14 +17,14 @@ type Frontend struct {
 	stun *stun.Frontend
 }
 
-func NewFrontend(localAddr, stunAddr, fqdn string) *Frontend {
-	f, err := stun.NewFrontend(stunAddr)
+func NewFrontend(c *FrontendConfig) *Frontend {
+	f, err := stun.NewFrontend(c.StunAddr)
 	if err != nil {
 		return nil
 	}
 	return &Frontend{
-		localAddr: localAddr,
-		fqdn:      fqdn,
+		localAddr: c.Addr,
+		fqdn:      c.FQDN,
 		stun:      f,
 	}
 }

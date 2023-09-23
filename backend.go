@@ -11,24 +11,24 @@ import (
 )
 
 type Backend struct {
-	localAddr string
-	stun      *stun.Backend
+	laddr string
+	stun  *stun.Backend
 }
 
-func NewBackend(fqdn, stunAddr string) (*Backend, error) {
-	stun, err := stun.NewBackend(fqdn, stunAddr)
+func NewBackend(c *BackendConfig) (*Backend, error) {
+	stun, err := stun.NewBackend(c.FQDN, c.StunAddr)
 	if err != nil {
 		return nil, stderr.Wrap(err)
 	}
 	return &Backend{
-		localAddr: localAddr,
-		stun:      stun,
+		laddr: c.Addr,
+		stun:  stun,
 	}, nil
 }
 
 func (b *Backend) Run(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"laddr": b.localAddr,
+		"laddr": b.laddr,
 	})
 	log.Infof("run backend server ")
 	defer log.Infof("backend server exit.")
@@ -68,7 +68,7 @@ func (b *Backend) accept(ctx context.Context) {
 		return
 	}
 
-	t := tunnel.NewBackendTunnel(b.localAddr, raddr, conn)
+	t := tunnel.NewBackendTunnel(b.laddr, raddr, conn)
 	err = t.Run(ctx)
 	if err != nil {
 		logrus.WithContext(ctx).Errorf("run tunnel error:%v", err)

@@ -9,28 +9,10 @@ import (
 )
 
 var (
-	stunServer bool
-	ddns       bool
-	backend    bool
-	frontend   bool
-	runQuic    bool
-	stunAddr   string
-	localAddr  string
-	fqdn       string
-
 	debug bool
 )
 
 func main() {
-	flag.BoolVar(&stunServer, "s", false, "stun server")
-	flag.BoolVar(&backend, "b", false, "backend server")
-	flag.BoolVar(&frontend, "f", false, "frontend cient")
-	flag.BoolVar(&ddns, "ddns", false, "run ddns server")
-	flag.BoolVar(&runQuic, "quic", false, "run quic server on 444")
-	flag.StringVar(&stunAddr, "stun", "114.115.218.1:2023", "stun server addr")
-	flag.StringVar(&localAddr, "laddr", "", "listen addr")
-	flag.StringVar(&fqdn, "fqdn", "", "fqdn")
-
 	flag.BoolVar(&debug, "debug", true, "debug mode")
 	flag.Parse()
 
@@ -42,9 +24,17 @@ func main() {
 
 	var ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
+
+	config, err := LoadConfig("config.yaml")
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+
 	switch {
-	case stunServer:
-		if ddns {
+	case config.Server != nil:
+		c := config.Server
+		if config.Server.DDNS {
 			go func() {
 				err := NewDdns().Run(ctx)
 				if err != nil {
@@ -52,7 +42,7 @@ func main() {
 				}
 			}()
 		}
-		s, err := stun.NewServer(localAddr)
+		s, err := stun.NewServer(c.Addr)
 		if err != nil {
 			logrus.Errorf("new stun server error:%v", err)
 			return
@@ -61,14 +51,14 @@ func main() {
 		if err != nil {
 			logrus.Errorf("run stun server error:%v", err)
 		}
-	case backend:
-		if runQuic {
+	case config.Backend != nil:
+		if config.Quic != nil {
 			go func() {
 				err := (&QuicServer{}).Run(ctx)
 				logrus.Errorf("run quic http3 server error:%v", err)
 			}()
 		}
-		b, err := NewBackend(fqdn, stunAddr)
+		b, err := NewBackend(config.Backend)
 		if err != nil {
 			logrus.Errorf("new backend server error:%v", err)
 		}
@@ -76,8 +66,8 @@ func main() {
 		if err != nil {
 			logrus.Errorf("run backend error:%v", err)
 		}
-	case frontend:
-		f := NewFrontend(localAddr, stunAddr, fqdn)
+	case config.Frontend != nil:
+		f := NewFrontend(config.Frontend)
 		err := f.Run(ctx)
 		if err != nil {
 			logrus.Errorf("run frontend error:%v", err)

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quic-go/quic-go"
@@ -11,15 +10,12 @@ import (
 )
 
 type QuicServer struct {
+	config *QuicConfig
 }
 
 func (s *QuicServer) Run(ctx context.Context) error {
-	var certFile = "ca/quic.iakl.top.pem"
-	var keyFile = "ca/quic.iakl.top.key"
-	if _, err := os.Stat(certFile); err != nil {
-		certFile = "ca/quic.iakl.top.crt"
-	}
-	ca, err := tls.LoadX509KeyPair(certFile, keyFile)
+
+	ca, err := tls.LoadX509KeyPair(s.config.CertFile, s.config.KeyFile)
 	if err != nil {
 		return err
 	}
