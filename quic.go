@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 
+	"github.com/gin-gonic/gin"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 )
@@ -12,10 +13,20 @@ type QuicServer struct {
 }
 
 func (s *QuicServer) Run(ctx context.Context) error {
-	ca, err := tls.LoadX509KeyPair("quic.crt", "quic.key")
+	ca, err := tls.LoadX509KeyPair("quic.iakl.top.pem", "quic.iakl.top.key")
 	if err != nil {
 		return err
 	}
+
+	e := gin.Default()
+
+	e.GET("/hello", func(c *gin.Context) {
+		c.String(200, "hello, quic!")
+	})
+
+	e.NoRoute(func(c *gin.Context) {
+		c.String(200, "hello, quic anywhere!")
+	})
 
 	var server = http3.Server{
 		Addr: ":444",
@@ -23,6 +34,7 @@ func (s *QuicServer) Run(ctx context.Context) error {
 			Certificates: []tls.Certificate{ca},
 		},
 		QuicConfig: &quic.Config{},
+		Handler:    e,
 	}
 	return server.ListenAndServe()
 }

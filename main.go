@@ -62,6 +62,12 @@ func main() {
 			logrus.Errorf("run stun server error:%v", err)
 		}
 	case backend:
+		if runQuic {
+			go func() {
+				err := (&QuicServer{}).Run(ctx)
+				logrus.Errorf("run quic http3 server error:%v", err)
+			}()
+		}
 		b, err := NewBackend(fqdn, stunAddr)
 		if err != nil {
 			logrus.Errorf("new backend server error:%v", err)
