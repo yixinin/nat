@@ -9,6 +9,8 @@ import (
 	"nat/stderr"
 	"net"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,11 +27,22 @@ type FrontendTunnel struct {
 	port  uint16
 }
 
-func NewFrontendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *FrontendTunnel {
+func NewFrontendTunnel(fqdn, localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *FrontendTunnel {
+	ss := strings.Split(localAddr, ":")
+	var port uint16
+	if len(ss) == 2 {
+		p, err := strconv.ParseUint(ss[1], 10, 16)
+		if err != nil {
+			logrus.Errorf("parse local port error:%v", err)
+		}
+		port = uint16(p)
+	}
 	t := &FrontendTunnel{
 		laddr: localAddr,
 		rconn: conn,
 		raddr: remoteAddr,
+		FQDN:  fqdn,
+		port:  port,
 	}
 	return t
 }

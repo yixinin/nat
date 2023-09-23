@@ -43,7 +43,7 @@ func (f *Frontend) Run(ctx context.Context) error {
 	if err != nil {
 		return stderr.Wrap(err)
 	}
-	t := tunnel.NewFrontendTunnel(f.localAddr, raddr, conn)
+	t := tunnel.NewFrontendTunnel(f.fqdn, f.localAddr, raddr, conn)
 
 	return t.Run(ctx)
 }
