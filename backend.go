@@ -44,9 +44,7 @@ func (b *Backend) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			logrus.Debugf("accept new tunnel conn...")
 			if count.Load() >= 2 {
-				logrus.Debugf("sikp accept tunnel")
 				continue
 			}
 			count.Add(1)
