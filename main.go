@@ -4,6 +4,9 @@ import (
 	"context"
 	"flag"
 	"nat/stun"
+	"os"
+	"os/signal"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -31,6 +34,27 @@ func main() {
 		return
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		Run(ctx, config)
+	}()
+
+	var ch = make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	for {
+		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return
+		case <-ch:
+			cancel()
+		}
+	}
+}
+
+func Run(ctx context.Context, config *Config) {
 	switch {
 	case config.Server != nil:
 		c := config.Server

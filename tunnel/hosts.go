@@ -13,7 +13,7 @@ const (
 )
 
 func setHosts(fqdn string) bool {
-	var h = fmt.Sprintf("127.0.0.1 %s #", fqdn)
+	var h = fmt.Sprintf("127.0.0.1 %s %s", fqdn, hostsSuffix)
 	data, err := os.ReadFile(HostsFile)
 	if err != nil {
 		logrus.Errorf("read hosts file:%s error:%v", HostsFile, err)
@@ -37,7 +37,7 @@ func setHosts(fqdn string) bool {
 }
 
 func cleanHosts(fqdn string) {
-	var h = fmt.Sprintf("127.0.0.1 %s #", fqdn)
+	var h = fmt.Sprintf("127.0.0.1 %s %s", fqdn, hostsSuffix)
 	data, err := os.ReadFile(HostsFile)
 	if err != nil {
 		logrus.Errorf("read hosts file:%s error:%v", HostsFile, err)
