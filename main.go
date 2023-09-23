@@ -54,7 +54,9 @@ func main() {
 	case config.Backend != nil:
 		if config.Quic != nil {
 			go func() {
-				err := (&QuicServer{}).Run(ctx)
+				err := (&QuicServer{
+					config: config.Quic,
+				}).Run(ctx)
 				logrus.Errorf("run quic http3 server error:%v", err)
 			}()
 		}
