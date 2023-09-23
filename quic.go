@@ -13,7 +13,7 @@ type QuicServer struct {
 }
 
 func (s *QuicServer) Run(ctx context.Context) error {
-	ca, err := tls.LoadX509KeyPair("quic.iakl.top.pem", "quic.iakl.top.key")
+	ca, err := tls.LoadX509KeyPair("ca/quic.iakl.top.pem", "ca/quic.iakl.top.key")
 	if err != nil {
 		return err
 	}
