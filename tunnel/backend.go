@@ -73,7 +73,13 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	// listen quic
 	lis, err := quic.Listen(t.rconn, &tls.Config{
 		Certificates: []tls.Certificate{ca},
-	}, &quic.Config{})
+	}, &quic.Config{
+		EnableDatagrams: true,
+		Versions:        []quic.VersionNumber{quic.Version2},
+		RequireAddressValidation: func(a net.Addr) bool {
+			return true
+		},
+	})
 	if err != nil {
 		return stderr.Wrap(err)
 	}

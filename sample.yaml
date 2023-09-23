@@ -1,7 +1,7 @@
 frontend:
   addr: ":8082"
   fqdn: "drive.iakl.top"
-  strun_addr: "114.115.218.1:2023"
+  stun_addr: "114.115.218.1:2023"
 backend:
   addr: ':5212'
   fqdn: drive.iakl.top

@@ -69,7 +69,14 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	defer qcancel()
 
 	log.Infof("dial quic raddr:%s", t.raddr)
-	quicConn, err := quic.Dial(qctx, t.rconn, t.raddr, &tls.Config{InsecureSkipVerify: true}, &quic.Config{})
+
+	quicConn, err := quic.Dial(qctx, t.rconn, t.raddr, &tls.Config{InsecureSkipVerify: true}, &quic.Config{
+		EnableDatagrams: true,
+		Versions:        []quic.VersionNumber{quic.Version2},
+		RequireAddressValidation: func(a net.Addr) bool {
+			return true
+		},
+	})
 	if err != nil {
 		return stderr.Wrap(err)
 	}
