@@ -3,6 +3,7 @@ package tunnel
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"nat/message"
 	"nat/stderr"
@@ -19,7 +20,9 @@ type FrontendTunnel struct {
 	rconn *net.UDPConn
 	raddr *net.UDPAddr
 
+	FQDN  string
 	laddr string
+	port  uint16
 }
 
 func NewFrontendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *FrontendTunnel {
@@ -80,7 +83,31 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	if err != nil {
 		return stderr.Wrap(err)
 	}
-	log.Info("start open stream")
+	ok := setHosts(t.FQDN)
+	defer cleanHosts(t.FQDN)
+	if ok {
+		var addr string
+		switch t.port {
+		case 80:
+			addr = fmt.Sprintf("http://%s", t.FQDN)
+		case 443:
+			addr = fmt.Sprintf("https://%s", t.FQDN)
+		default:
+			addr = fmt.Sprintf("http://%s:%d", t.FQDN, t.port)
+		}
+		logrus.Infof("write hosts success, now you can visit site %s", addr)
+	} else {
+		var addr string
+		switch t.port {
+		case 80:
+			addr = fmt.Sprintf("http://%s", "localhost")
+		case 443:
+			addr = fmt.Sprintf("https://%s", "localhost")
+		default:
+			addr = fmt.Sprintf("http://%s:%d", "localhost", t.port)
+		}
+		logrus.Infof("write hosts fail, you can still visit site %s by localhost:%s", t.FQDN, addr)
+	}
 	hbStream, err := quicConn.OpenStreamSync(ctx)
 	if err != nil {
 		return stderr.Wrap(err)
