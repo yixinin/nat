@@ -19,21 +19,21 @@ type BackendTunnel struct {
 	rconn *net.UDPConn
 	raddr *net.UDPAddr
 
-	localAddr string
+	laddr string
 }
 
 func NewBackendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *BackendTunnel {
 	t := &BackendTunnel{
-		localAddr: localAddr,
-		rconn:     conn,
-		raddr:     remoteAddr,
+		laddr: localAddr,
+		rconn: conn,
+		raddr: remoteAddr,
 	}
 	return t
 }
 
 func (t *BackendTunnel) Run(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"laddr": t.localAddr,
+		"laddr": t.laddr,
 		"raddr": t.raddr.String(),
 	})
 	log.Infof("start backend tunnel")
@@ -61,10 +61,10 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 			return stderr.Wrap(err)
 		}
 		if msg.Type() == message.TypeReady {
+			log.Info("recv peer ready message, start quic accept")
 			break
 		}
 	}
-	log.Info("ready quic accept")
 
 	ca, err := tls.LoadX509KeyPair("quic.crt", "quic.key")
 	if err != nil {
@@ -119,7 +119,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 		conn, err := lis.Accept(ctx)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
-				"laddr": t.localAddr,
+				"laddr": t.laddr,
 			}).Errorf("accept quic conn exit with error:%v", err)
 			cancel()
 			return
@@ -150,13 +150,13 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 func (t *BackendTunnel) handle(ctx context.Context, stream quic.Stream) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"id":    stream.StreamID(),
-		"laddr": t.localAddr,
+		"laddr": t.laddr,
 		"raddr": t.raddr.String(),
 	})
 	log.Infof("start backend tunnel handle")
 	defer log.Infof("backend tunnel hanle exit.")
 
-	conn, err := net.Dial("tcp", t.localAddr)
+	conn, err := net.Dial("tcp", t.laddr)
 	if err != nil {
 		return err
 	}

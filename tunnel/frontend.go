@@ -19,21 +19,21 @@ type FrontendTunnel struct {
 	rconn *net.UDPConn
 	raddr *net.UDPAddr
 
-	localAddr string
+	laddr string
 }
 
 func NewFrontendTunnel(localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *FrontendTunnel {
 	t := &FrontendTunnel{
-		localAddr: localAddr,
-		rconn:     conn,
-		raddr:     remoteAddr,
+		laddr: localAddr,
+		rconn: conn,
+		raddr: remoteAddr,
 	}
 	return t
 }
 
 func (t *FrontendTunnel) Run(ctx context.Context) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
-		"laddr": t.localAddr,
+		"laddr": t.laddr,
 		"raddr": t.raddr.String(),
 	})
 	log.Infof("start frontend tunnel")
@@ -57,10 +57,10 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			return err
 		}
 		if msg.Type() == message.TypeReady {
+			log.Info("recv peer ready message, start quic dial")
 			break
 		}
 	}
-	log.Info("ready quic dial")
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -68,6 +68,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	qctx, qcancel := context.WithTimeout(ctx, 30*time.Second)
 	defer qcancel()
 
+	log.Infof("dial quic raddr:%s", t.raddr)
 	quicConn, err := quic.Dial(qctx, t.rconn, t.raddr, &tls.Config{InsecureSkipVerify: true}, &quic.Config{})
 	if err != nil {
 		return stderr.Wrap(err)
@@ -86,7 +87,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 		}
 	}()
 
-	lis, err := net.Listen("tcp", t.localAddr)
+	lis, err := net.Listen("tcp", t.laddr)
 	if err != nil {
 		return stderr.Wrap(err)
 	}
@@ -110,7 +111,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			conn, err := lis.Accept()
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
-					"laddr": t.localAddr,
+					"laddr": t.laddr,
 				}).Errorf("accept exit with error:%v", err)
 				cancel()
 				return
@@ -149,7 +150,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn, stream quic.Stream) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"id":    stream.StreamID(),
-		"laddr": t.localAddr,
+		"laddr": t.laddr,
 	})
 	log.Debug("start handle")
 	defer log.Debug("handle exit.")
