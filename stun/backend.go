@@ -122,7 +122,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			log.WithFields(logrus.Fields{
 				"raddr": d.addr.String(),
 				"fqdn":  b.FQDN,
-			}).Debugf("recv data:%v", msg)
+			}).Debugf("recv data:%s", msg.Type())
 			switch msg := msg.(type) {
 			case *message.ConnMessage:
 				tk.Stop()

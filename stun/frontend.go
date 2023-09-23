@@ -117,7 +117,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			log.WithFields(logrus.Fields{
 				"raddr": d.addr.String(),
 				"fqdn":  fqdn,
-			}).Debugf("recv data:%v", msg)
+			}).Debugf("recv data:%s", msg.Type())
 			switch msg := msg.(type) {
 			case *message.ConnMessage:
 				tk.Stop()

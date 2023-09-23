@@ -112,7 +112,7 @@ func (s *Server) Run(ctx context.Context) error {
 					}).Debugf("recv unknown data:%s", reflect.TypeOf(msg))
 					return nil
 				}
-				log.Debugf("recv data:%v", msg)
+				log.Debugf("recv data:%s", msg.Type())
 				switch m.ClientType {
 				case message.Backend:
 					if err := s.dns.SetIP(ctx, m.FQDN, remoteIP); err != nil {

@@ -57,9 +57,9 @@ func (b *Backend) Run(ctx context.Context) error {
 }
 
 func (b *Backend) accept(ctx context.Context) (ok bool) {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	actx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
-	conn, raddr, err := b.stun.Accept(ctx)
+	conn, raddr, err := b.stun.Accept(actx)
 	if os.IsTimeout(err) {
 		return false
 	}
