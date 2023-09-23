@@ -15,8 +15,6 @@ import (
 type Backend struct {
 	FQDN     string
 	stunAddr *net.UDPAddr
-
-	newAccept chan struct{}
 }
 
 func NewBackend(fqdn, stunAddr string) (*Backend, error) {
@@ -27,13 +25,7 @@ func NewBackend(fqdn, stunAddr string) (*Backend, error) {
 	return &Backend{
 		FQDN:     fqdn,
 		stunAddr: addr,
-
-		newAccept: make(chan struct{}, 10),
 	}, nil
-}
-
-func (b *Backend) NewAccept() chan struct{} {
-	return b.newAccept
 }
 
 func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error) {
@@ -103,7 +95,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			log.WithFields(logrus.Fields{
 				"raddr": raddr.String(),
 				"fqdn":  b.FQDN,
-			}).Debugf("recved %d data", n)
+			}).Debugf("recv %d data", n)
 			dataCh <- RemoteData{
 				addr: raddr,
 				data: buf[:n],
@@ -130,7 +122,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			log.WithFields(logrus.Fields{
 				"raddr": d.addr.String(),
 				"fqdn":  b.FQDN,
-			}).Debugf("recved data:%v", msg)
+			}).Debugf("recv data:%v", msg)
 			switch msg := msg.(type) {
 			case *message.ConnMessage:
 				tk.Stop()
@@ -145,10 +137,6 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				if err != nil {
 					log.Errorf("handshake with %s error:%v", msg.RemoteAddr, err)
 					return nil, nil, stderr.Wrap(err)
-				}
-				if err == nil {
-					log.Debugf("accept new ...")
-					b.newAccept <- struct{}{}
 				}
 			case *message.HandShakeMessage:
 				// received handshake, success.

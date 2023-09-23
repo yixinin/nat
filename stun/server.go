@@ -79,7 +79,7 @@ func (s *Server) Run(ctx context.Context) error {
 			log.WithFields(logrus.Fields{
 				"raddr": raddr.String(),
 				"laddr": s.localAddr,
-			}).Debugf("recved %d data", n)
+			}).Debugf("recv %d data", n)
 			dataCh <- RemoteData{
 				addr: raddr,
 				data: buf[:n],
@@ -109,7 +109,7 @@ func (s *Server) Run(ctx context.Context) error {
 					log.WithFields(logrus.Fields{
 						"raddr": d.addr.String(),
 						"laddr": s.localAddr,
-					}).Debugf("recved unknown data:%s", reflect.TypeOf(msg))
+					}).Debugf("recv unknown data:%s", reflect.TypeOf(msg))
 					return nil
 				}
 				log.Debugf("recv data:%v", msg)

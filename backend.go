@@ -5,7 +5,9 @@ import (
 	"nat/stderr"
 	"nat/stun"
 	"nat/tunnel"
+	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -37,43 +39,43 @@ func (b *Backend) Run(ctx context.Context) error {
 	defer log.Infof("backend server exit.")
 
 	count := atomic.Int32{}
-
-	go func() {
-		count.Add(1)
-		b.accept(ctx)
-		count.Add(-1)
-	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-b.stun.NewAccept():
-			logrus.Debugf("accept new conn...")
+		default:
+			logrus.Debugf("accept new tunnel conn...")
 			if count.Load() >= 2 {
+				logrus.Debugf("sikp accept tunnel")
 				continue
 			}
+			count.Add(1)
 			go func() {
-				count.Add(1)
+				defer count.Add(-1)
 				b.accept(ctx)
-				count.Add(-1)
 			}()
 		}
 	}
 }
 
-func (b *Backend) accept(ctx context.Context) {
-	defer func() {
-		b.stun.NewAccept() <- struct{}{}
-	}()
+func (b *Backend) accept(ctx context.Context) (ok bool) {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
 	conn, raddr, err := b.stun.Accept(ctx)
+	if os.IsTimeout(err) {
+		return false
+	}
 	if err != nil {
 		logrus.WithContext(ctx).Errorf("accept error:%v", err)
-		return
+		return false
 	}
 
-	t := tunnel.NewBackendTunnel(b.laddr, raddr, conn, b.certFile, b.keyFile)
-	err = t.Run(ctx)
-	if err != nil {
-		logrus.WithContext(ctx).Errorf("run tunnel error:%v", err)
-	}
+	go func() {
+		t := tunnel.NewBackendTunnel(b.laddr, raddr, conn, b.certFile, b.keyFile)
+		err = t.Run(ctx)
+		if err != nil {
+			logrus.WithContext(ctx).Errorf("run tunnel error:%v", err)
+		}
+	}()
+	return true
 }
