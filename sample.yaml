@@ -1,0 +1,16 @@
+frontend:
+  addr: ":8082"
+  fqdn: "drive.iakl.top"
+  strun_addr: "114.115.218.1:2023"
+backend:
+  addr: ':5212'
+  fqdn: drive.iakl.top
+  stun_addr: '114.115.218.1:2023'
+  cert_file: 'ca/drive.iakl.top/drive.iakl.top.crt'
+  key_file: 'ca/drive.iakl.top/drive.iakl.top.key'
+quic:
+  port: 8081
+  cert_file: 'ca/drive.iakl.top/quic.iakl.top.crt'
+  key_file: 'ca/drive.iakl.top/quic.iakl.top.key'
+server:
+  addr: ':2023'
