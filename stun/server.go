@@ -76,10 +76,6 @@ func (s *Server) Run(ctx context.Context) error {
 				log.Debug("read no data")
 				continue
 			}
-			log.WithFields(logrus.Fields{
-				"raddr": raddr.String(),
-				"laddr": s.localAddr,
-			}).Debugf("recv %d data", n)
 			dataCh <- RemoteData{
 				addr: raddr,
 				data: buf[:n],

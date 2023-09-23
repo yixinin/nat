@@ -117,7 +117,7 @@ func (p *Proxy) ReadWriter(id uint64) io.ReadWriteCloser {
 func (p *Proxy) SendCmdMessage(msg ...message.Message) {
 	for _, msg := range msg {
 		if msg, ok := msg.(*message.PacketMessage); ok {
-			logrus.Debugf("send data id: %d, seq: %d", msg.Id, msg.Seq)
+			logrus.Debugf("recv %s data id: %d, seq: %d", msg.Type(), msg.Id, msg.Seq)
 		}
 		p.sendCh <- msg
 	}

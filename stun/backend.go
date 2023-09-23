@@ -92,10 +92,6 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				}).Debug("read no data")
 				continue
 			}
-			log.WithFields(logrus.Fields{
-				"raddr": raddr.String(),
-				"fqdn":  b.FQDN,
-			}).Debugf("recv %d data", n)
 			dataCh <- RemoteData{
 				addr: raddr,
 				data: buf[:n],

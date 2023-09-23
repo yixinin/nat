@@ -87,10 +87,6 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 				}).Debug("read no data")
 				continue
 			}
-			log.WithFields(logrus.Fields{
-				"raddr": raddr.String(),
-				"fqdn":  fqdn,
-			}).Debugf("recv %d data", n)
 			dataCh <- RemoteData{
 				addr: raddr,
 				data: buf[:n],
