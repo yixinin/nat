@@ -5,5 +5,5 @@ package tunnel
 
 const (
 	HostsFile = "/etc/hosts"
-	Sep       = "\n"
+	LineSep   = "\n"
 )
