@@ -124,7 +124,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 				tk.Stop()
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
-				err := handshake(ctx, conn, msg.RemoteAddr)
+				err := handShakeTick(ctx, conn, msg.RemoteAddr)
 				if os.IsTimeout(err) {
 					log.Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 10)
 					tk.Reset(10 * time.Second)

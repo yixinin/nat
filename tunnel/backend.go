@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
-	"nat/message"
 	"nat/stderr"
 	"net"
 	"runtime/debug"
@@ -45,30 +44,6 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	// send peer ready
-	data, _ := message.Marshal(message.ReadyMessage{})
-	_, err := t.rconn.WriteToUDP(data, t.raddr)
-	if err != nil {
-		return stderr.Wrap(err)
-	}
-	// wait peer ready
-	var buf = make([]byte, 32)
-	for {
-		n, _, err := t.rconn.ReadFromUDP(buf)
-		if err != nil {
-			return err
-		}
-		msg, err := message.Unmarshal(buf[:n])
-		if err != nil {
-			log.Info(string(buf[:n]))
-			return stderr.Wrap(err)
-		}
-		if msg.Type() == message.TypeReady {
-			log.Info("recv peer ready message, start quic accept")
-			break
-		}
-	}
 
 	ca, err := tls.LoadX509KeyPair(t.certFile, t.keyFile)
 	if err != nil {

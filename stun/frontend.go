@@ -94,6 +94,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 		}
 	}()
 
+	var handshakeCanel context.CancelFunc = func() {}
 	for {
 		select {
 		case <-ctx.Done():
@@ -118,8 +119,9 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 			case *message.ConnMessage:
 				tk.Stop()
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				handshakeCanel = cancel
 				defer cancel()
-				err := handshake(ctx, conn, msg.RemoteAddr)
+				err := handShakeTick(ctx, conn, msg.RemoteAddr)
 				if os.IsTimeout(err) {
 					log.Errorf("handshake with %s timeout, will retry in %d seconds", msg.RemoteAddr, 3)
 					tk.Reset(3 * time.Second)
@@ -130,8 +132,14 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 					return nil, nil, stderr.Wrap(err)
 				}
 			case *message.HandShakeMessage:
-				// received handshake, success.
-				cancel()
+				handshakeCanel()
+				time.Sleep(10 * time.Millisecond)
+				data, _ := message.Marshal(message.ReadyMessage{})
+				_, err := conn.WriteToUDP(data, d.addr)
+				if err != nil {
+					return nil, nil, stderr.Wrap(err)
+				}
+			case *message.ReadyMessage:
 				return conn, d.addr, nil
 			}
 		}

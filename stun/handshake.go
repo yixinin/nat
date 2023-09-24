@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func handshake(ctx context.Context, conn *net.UDPConn, raddr *net.UDPAddr) error {
+func handShakeTick(ctx context.Context, conn *net.UDPConn, raddr *net.UDPAddr) error {
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"raddr": raddr.String(),
 	})

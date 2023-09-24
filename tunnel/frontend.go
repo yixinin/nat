@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"nat/message"
 	"nat/stderr"
 	"net"
 	"runtime/debug"
@@ -54,29 +53,6 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	})
 	log.Infof("start frontend tunnel")
 	defer log.Infof("frontend tunnel exit.")
-
-	// send peer ready
-	data, _ := message.Marshal(message.ReadyMessage{})
-	_, err := t.rconn.WriteToUDP(data, t.raddr)
-	if err != nil {
-		return err
-	}
-	// wait peer ready
-	var buf = make([]byte, 32)
-	for {
-		n, _, err := t.rconn.ReadFromUDP(buf)
-		if err != nil {
-			return err
-		}
-		msg, err := message.Unmarshal(buf[:n])
-		if err != nil {
-			return err
-		}
-		if msg.Type() == message.TypeReady {
-			log.Info("recv peer ready message, start quic dial")
-			break
-		}
-	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
