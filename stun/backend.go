@@ -98,7 +98,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			}
 		}
 	}()
-
+	var handshakeCanel context.CancelFunc = func() {}
 	for {
 		select {
 		case <-ctx.Done():
@@ -123,6 +123,7 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 			case *message.ConnMessage:
 				tk.Stop()
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				handshakeCanel = cancel
 				defer cancel()
 				err := handShakeTick(ctx, conn, msg.RemoteAddr)
 				if os.IsTimeout(err) {
@@ -135,7 +136,14 @@ func (b *Backend) Accept(ctx context.Context) (*net.UDPConn, *net.UDPAddr, error
 					return nil, nil, stderr.Wrap(err)
 				}
 			case *message.HandShakeMessage:
-				// received handshake, success.
+				handshakeCanel()
+				time.Sleep(10 * time.Millisecond)
+				data, _ := message.Marshal(message.ReadyMessage{})
+				_, err := conn.WriteToUDP(data, d.addr)
+				if err != nil {
+					return nil, nil, stderr.Wrap(err)
+				}
+			case *message.ReadyMessage:
 				return conn, d.addr, nil
 			}
 		}
