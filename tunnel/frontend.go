@@ -4,22 +4,16 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"nat/stderr"
 	"net"
 	"os"
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/quic-go/quic-go"
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	NoRecentNetworkActivity = "timeout: no recent network activity"
 )
 
 type FrontendTunnel struct {
@@ -193,53 +187,5 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn, stream quic.
 	})
 	log.Debug("start handle")
 	defer log.Debug("handle exit.")
-	defer conn.Close()
-	defer stream.Close()
-
-	var errCh = make(chan error, 1)
-	defer close(errCh)
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		n, err := io.Copy(conn, stream)
-		if os.IsTimeout(err) {
-			if err.Error() == NoRecentNetworkActivity {
-				errCh <- stderr.New("closed", NoRecentNetworkActivity)
-				return
-			}
-		}
-		if err != nil {
-			log.Errorf("stream copy to conn error:%v", err)
-		} else {
-			log.Debugf("end stream copy %d to conn", n)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		n, err := io.Copy(stream, conn)
-		if os.IsTimeout(err) {
-			if err.Error() == NoRecentNetworkActivity {
-				errCh <- stderr.New("closed", NoRecentNetworkActivity)
-				return
-			}
-		}
-		if err != nil {
-			log.Errorf("conn copy to stream error:%v", err)
-		} else {
-			log.Debugf("end conn copy %d to stream", n)
-		}
-
-	}()
-
-	go func() {
-		wg.Wait()
-		errCh <- nil
-	}()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errCh:
-		return err
-	}
+	return Copy(ctx, conn, stream, log)
 }
