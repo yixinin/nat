@@ -6,6 +6,7 @@ import (
 	"io"
 	"nat/stderr"
 	"net"
+	"os"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -148,11 +149,19 @@ func (t *BackendTunnel) handle(ctx context.Context, stream quic.Stream) error {
 	defer conn.Close()
 	defer stream.Close()
 
+	var errCh = make(chan error, 1)
+	defer close(errCh)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(conn, stream)
+		if os.IsTimeout(err) {
+			if err.Error() == NoRecentNetworkActivity {
+				errCh <- stderr.New("closed", NoRecentNetworkActivity)
+				return
+			}
+		}
 		if err != nil {
 			log.Errorf("stream copy to conn error:%v", err)
 		} else {
@@ -163,12 +172,27 @@ func (t *BackendTunnel) handle(ctx context.Context, stream quic.Stream) error {
 	go func() {
 		defer wg.Done()
 		_, err := io.Copy(stream, conn)
+		if os.IsTimeout(err) {
+			if err.Error() == NoRecentNetworkActivity {
+				errCh <- stderr.New("closed", NoRecentNetworkActivity)
+				return
+			}
+		}
 		if err != nil {
 			log.Errorf("conn copy to stream error:%v", err)
 		} else {
 			log.Info("end conn copy to stream")
 		}
 	}()
-	wg.Wait()
-	return ctx.Err()
+
+	go func() {
+		wg.Wait()
+		errCh <- nil
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errCh:
+		return err
+	}
 }

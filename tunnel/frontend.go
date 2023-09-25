@@ -7,6 +7,7 @@ import (
 	"io"
 	"nat/stderr"
 	"net"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -17,6 +18,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	NoRecentNetworkActivity = "timeout: no recent network activity"
+)
+
 type FrontendTunnel struct {
 	rconn *net.UDPConn
 	raddr *net.UDPAddr
@@ -24,6 +29,9 @@ type FrontendTunnel struct {
 	FQDN  string
 	laddr string
 	port  uint16
+
+	proxy bool
+	hosts bool
 }
 
 func NewFrontendTunnel(fqdn, localAddr string, remoteAddr *net.UDPAddr, conn *net.UDPConn) *FrontendTunnel {
@@ -72,31 +80,34 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	if err != nil {
 		return stderr.Wrap(err)
 	}
-	ok := setHosts(t.FQDN)
-	defer cleanHosts(t.FQDN)
-	if ok {
-		var addr string
-		switch t.port {
-		case 80:
-			addr = fmt.Sprintf("http://%s", t.FQDN)
-		case 443:
-			addr = fmt.Sprintf("https://%s", t.FQDN)
-		default:
-			addr = fmt.Sprintf("http://%s:%d", t.FQDN, t.port)
+	if t.hosts {
+		ok := setHosts(t.FQDN)
+		defer cleanHosts(t.FQDN)
+		if ok {
+			var addr string
+			switch t.port {
+			case 80:
+				addr = fmt.Sprintf("http://%s", t.FQDN)
+			case 443:
+				addr = fmt.Sprintf("https://%s", t.FQDN)
+			default:
+				addr = fmt.Sprintf("http://%s:%d", t.FQDN, t.port)
+			}
+			logrus.Infof("write hosts success, now you can visit site %s", addr)
+		} else {
+			var addr string
+			switch t.port {
+			case 80:
+				addr = fmt.Sprintf("http://%s", "localhost")
+			case 443:
+				addr = fmt.Sprintf("https://%s", "localhost")
+			default:
+				addr = fmt.Sprintf("http://%s:%d", "localhost", t.port)
+			}
+			logrus.Infof("write hosts fail, you can still visit site %s by localhost:%s", t.FQDN, addr)
 		}
-		logrus.Infof("write hosts success, now you can visit site %s", addr)
-	} else {
-		var addr string
-		switch t.port {
-		case 80:
-			addr = fmt.Sprintf("http://%s", "localhost")
-		case 443:
-			addr = fmt.Sprintf("https://%s", "localhost")
-		default:
-			addr = fmt.Sprintf("http://%s:%d", "localhost", t.port)
-		}
-		logrus.Infof("write hosts fail, you can still visit site %s by localhost:%s", t.FQDN, addr)
 	}
+
 	hbStream, err := quicConn.OpenStreamSync(ctx)
 	if err != nil {
 		return stderr.Wrap(err)
@@ -157,6 +168,11 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 			defer scancel()
 			stream, err := quicConn.OpenStreamSync(sctx)
 			if err != nil {
+				if os.IsTimeout(err) {
+					if err.Error() == NoRecentNetworkActivity {
+						return stderr.New("closed", NoRecentNetworkActivity)
+					}
+				}
 				log.Errorf("open stream error:%v", err)
 				continue
 			}
@@ -180,11 +196,19 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn, stream quic.
 	defer conn.Close()
 	defer stream.Close()
 
+	var errCh = make(chan error, 1)
+	defer close(errCh)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		n, err := io.Copy(conn, stream)
+		if os.IsTimeout(err) {
+			if err.Error() == NoRecentNetworkActivity {
+				errCh <- stderr.New("closed", NoRecentNetworkActivity)
+				return
+			}
+		}
 		if err != nil {
 			log.Errorf("stream copy to conn error:%v", err)
 		} else {
@@ -194,6 +218,12 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn, stream quic.
 	go func() {
 		defer wg.Done()
 		n, err := io.Copy(stream, conn)
+		if os.IsTimeout(err) {
+			if err.Error() == NoRecentNetworkActivity {
+				errCh <- stderr.New("closed", NoRecentNetworkActivity)
+				return
+			}
+		}
 		if err != nil {
 			log.Errorf("conn copy to stream error:%v", err)
 		} else {
@@ -201,6 +231,15 @@ func (t *FrontendTunnel) handle(ctx context.Context, conn net.Conn, stream quic.
 		}
 
 	}()
-	wg.Wait()
-	return ctx.Err()
+
+	go func() {
+		wg.Wait()
+		errCh <- nil
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errCh:
+		return err
+	}
 }
