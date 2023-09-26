@@ -1,7 +1,10 @@
 frontend:
   addr: ":8082"
-  fqdn: "drive.iakl.top"
   stun_addr: "114.115.218.1:2023"
+  fqdn: 
+    - "drive.iakl.top"
+    - "ssh.iakl.top"
+  
 backend:
   addr: ':5212'
   fqdn: drive.iakl.top

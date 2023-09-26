@@ -28,8 +28,7 @@ func (f *Frontend) Dial(ctx context.Context, fqdn string) (*net.UDPConn, *net.UD
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{
 		"fqdn": fqdn,
 	})
-	log.Info("start dial")
-	defer log.Info("dial exit.")
+	log.Infof("start dial udp, fqdn:%s", fqdn)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

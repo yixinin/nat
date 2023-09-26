@@ -16,7 +16,7 @@ func handShakeTick(ctx context.Context, conn *net.UDPConn, raddr *net.UDPAddr) e
 	})
 	log.Info("start handshake")
 	defer log.Info("handshake exit.")
-	tk := time.NewTicker(time.Second)
+	tk := time.NewTicker(3 * time.Second)
 	defer tk.Stop()
 	for {
 		select {

@@ -21,9 +21,9 @@ type BackendConfig struct {
 	StunAddr string `yaml:"stun_addr"`
 }
 type FrontendConfig struct {
-	Addr     string `yaml:"addr"`
-	FQDN     string `yaml:"fqdn"`
-	StunAddr string `yaml:"stun_addr"`
+	Addr     string   `yaml:"addr"`
+	FQDN     []string `yaml:"fqdn"`
+	StunAddr string   `yaml:"stun_addr"`
 }
 
 type ServerConfig struct {
