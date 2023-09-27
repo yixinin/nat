@@ -12,11 +12,13 @@ import (
 )
 
 var (
-	debug bool
+	debug  bool
+	config string
 )
 
 func main() {
 	flag.BoolVar(&debug, "debug", true, "debug mode")
+	flag.StringVar(&config, "c", "config.yaml", "config file")
 	flag.Parse()
 
 	logrus.SetLevel(logrus.InfoLevel)
@@ -28,7 +30,7 @@ func main() {
 	var ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 
-	config, err := LoadConfig("config.yaml")
+	config, err := LoadConfig(config)
 	if err != nil {
 		logrus.Error(err)
 		return
