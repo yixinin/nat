@@ -87,23 +87,22 @@ func (f *Frontend) Run(ctx context.Context) error {
 				continue
 			}
 			var method, URL, address string
-			// 从客户端数据读入 method，url
 			_, err = fmt.Sscanf(string(buf[:bytes.IndexByte(buf[:n], '\n')]), "%s%s", &method, &URL)
 			if err != nil {
 				log.Errorf("local accept read parse error:%v", err)
 				conn.Close()
 				continue
 			}
-			hostPortURL, err := url.Parse(URL)
+			url, err := url.Parse(URL)
 			if err != nil {
 				log.Errorf("local accept read parse url error:%v", err)
 				conn.Close()
 				return
 			}
 
-			var fqdn = strings.Split(hostPortURL.Host, ":")[0]
+			var fqdn = strings.Split(url.Host, ":")[0]
 			if method == "CONNECT" {
-				address = hostPortURL.Scheme + ":" + hostPortURL.Opaque
+				address = url.Scheme + ":" + url.Opaque
 			}
 			connCh <- tunnel.NewLconn(conn, buf[:n], fqdn, address)
 			log.Infof("accept conn: %s", fqdn)
