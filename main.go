@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"nat/stun"
 	"os"
 	"os/signal"
@@ -32,7 +31,7 @@ func main() {
 			MaxAge:     28,   //days
 			Compress:   true, // disabled by default
 		}
-		log.SetOutput(logger)
+		logrus.SetOutput(logger)
 	}
 
 	logrus.SetLevel(logrus.InfoLevel)
