@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
 	"nat/stun"
 	"os"
 	"os/signal"
 	"sync"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/sirupsen/logrus"
 )
@@ -20,6 +23,17 @@ func main() {
 	flag.BoolVar(&debug, "debug", true, "debug mode")
 	flag.StringVar(&config, "c", "config.yaml", "config file")
 	flag.Parse()
+
+	{
+		logger := &lumberjack.Logger{
+			Filename:   "nat.log",
+			MaxSize:    500, // megabytes
+			MaxBackups: 3,
+			MaxAge:     28,   //days
+			Compress:   true, // disabled by default
+		}
+		log.SetOutput(logger)
+	}
 
 	logrus.SetLevel(logrus.InfoLevel)
 	if debug {
