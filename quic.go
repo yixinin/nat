@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quic-go/quic-go"
@@ -35,8 +36,10 @@ func (s *QuicServer) Run(ctx context.Context) error {
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{ca},
 		},
-		QuicConfig: &quic.Config{},
-		Handler:    e,
+		QuicConfig: &quic.Config{
+			KeepAlivePeriod: 10 * time.Second,
+		},
+		Handler: e,
 	}
 	return server.ListenAndServe()
 }

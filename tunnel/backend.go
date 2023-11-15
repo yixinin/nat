@@ -52,6 +52,7 @@ func (t *BackendTunnel) Run(ctx context.Context) error {
 	lis, err := quic.Listen(t.rconn, &tls.Config{
 		Certificates: []tls.Certificate{ca},
 	}, &quic.Config{
+		KeepAlivePeriod: 10 * time.Second,
 		EnableDatagrams: true,
 		Versions:        []quic.VersionNumber{quic.Version2},
 		RequireAddressValidation: func(a net.Addr) bool {

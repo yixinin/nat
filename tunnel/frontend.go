@@ -67,6 +67,7 @@ func (t *FrontendTunnel) Run(ctx context.Context) error {
 	log.Infof("dial quic raddr:%s", t.raddr)
 
 	quicConn, err := quic.Dial(qctx, t.rconn, t.raddr, &tls.Config{InsecureSkipVerify: true}, &quic.Config{
+		KeepAlivePeriod: 10 * time.Second,
 		EnableDatagrams: true,
 		Versions:        []quic.VersionNumber{quic.Version2},
 		RequireAddressValidation: func(a net.Addr) bool {
